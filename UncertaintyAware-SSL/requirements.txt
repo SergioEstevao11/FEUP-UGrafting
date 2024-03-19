@@ -1,0 +1,11 @@
+apex
+numpy
+ood_metrics
+pandas
+Pillow
+pytorch_lightning
+scikit_learn
+scipy
+tensorboard_logger
+torch
+torchvision
