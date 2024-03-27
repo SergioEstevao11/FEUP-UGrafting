@@ -35,6 +35,16 @@ def parse_option():
 
 def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", classifier_dir="."):
     probs_ensemble2_model = []
+    # print all the hyperparameters
+    print("=====Hyperparameters=====")
+    print(f"n is {n}")
+    print(f"nh is {nh}")
+    print(f"n_cls is {n_cls}")
+    print(f"test_loader is {test_loader}")
+    print(f"semi is {semi}")
+    print(f"model_dir is {model_dir}")
+    print(f"classifier_dir is {classifier_dir}")
+
     if semi == True:
         for i in range(n):
             linear_model_path =model_dir
@@ -48,7 +58,7 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
         for i in range(n):
             linear_model_path = model_dir
             simclr_path = classifier_dir
-
+            print(f"nh is {nh}")
             model, classifier, criterion = set_model_linear("resnet50", n_cls, simclr_path, nh=nh)
             classifier.load_state_dict(torch.load(linear_model_path))
             linear_model = MyEnsemble(model.encoder, classifier).cuda().eval()
@@ -105,8 +115,8 @@ def train():
 
     train_loader, val_loader, test_loader, targets = data_loader(opt.dataset, batch_size=128, semi=smi,
                                                                  semi_percent=opt.semi_percent)
-
-    ensemble(opt.ensemble, targets, n_cls, test_loader, smi, opt.model_path,opt.classifier_path)
+    #ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", classifier_dir=".")
+    ensemble(opt.ensemble, opt.nh, targets, n_cls, test_loader, smi, opt.model_path,opt.classifier_path)
 
 
 if __name__ == "__main__":

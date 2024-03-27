@@ -161,7 +161,10 @@ class LinearBatchNorm(nn.Module):
         x = self.bn(x)
         x = x.view(-1, self.dim)
         return x
+    
 
+def MC_dropout(act_vec, p=0.5, mask=True):
+    return F.dropout(act_vec, p=0.5, training=mask, inplace=True)
 
 class conResNet(nn.Module):
     """backbone + projection head"""
@@ -169,13 +172,17 @@ class conResNet(nn.Module):
     def __init__(self, name='resnet50', head='mlp', feat_dim=128, n_heads=5):
         super(conResNet, self).__init__()
 
+        self.backbone_task = name
         model_fun, dim_in = model_dict[name]
         self.total_var = 0
         self.encoder = model_fun()
         self.proj = []
         self.n_heads = n_heads
+        self.head_type = head
+
         if head == 'linear':
-            self.head = nn.Linear(dim_in, feat_dim)
+            self.proj = nn.Linear(dim_in, feat_dim)
+
         elif head == 'mlp':
             self.proj = nn.ModuleList()
             for _ in range(n_heads):
@@ -186,20 +193,51 @@ class conResNet(nn.Module):
                 )
                 self.proj.append(pro)
 
+        elif head == 'mc-dropout':
+            self.fc1 = nn.Linear(dim_in, dim_in)
+            self.fc2 = nn.Linear(dim_in, dim_in)
+            self.fc3 = nn.Linear(dim_in, feat_dim)
+            self.act = nn.ReLU(inplace=True)
+
+
         else:
             raise NotImplementedError(
                 'head not supported: {}'.format(head))
+        
+    def apply_mc_dropout(self, x):
+        # Apply MC-Dropout pattern using defined layers
+        x = MC_dropout(x, p=self.pdrop, mask=True)
+        x = self.act(self.fc1(x))
+        x = MC_dropout(x, p=self.pdrop, mask=True)
+        x = self.act(self.fc2(x))
+        x = self.fc3(x)  # No dropout after the last layer
+        return x
 
-    def forward(self, x1, x2):
-        f1 = self.encoder(x1)
-        f2 = self.encoder(x2)
-        res1 = []
-        res2 = []
-        for i in range(self.n_heads):
-            res1.append(F.normalize(self.proj[i](f1), dim=1))
-            res2.append(F.normalize(self.proj[i](f2), dim=1))
+    def forward(self, x1, x2, sample=True):
+        f1, f2 = self.encoder(x1), self.encoder(x2)
+        res1, res2 = [], []
+
+        if self.head_type == 'mc-dropout':
+            for _ in range(self.n_heads):
+                x1_dropout = self.apply_mc_dropout(f1)
+                x2_dropout = self.apply_mc_dropout(f2)
+                res1.append(F.normalize(x1_dropout, dim=1))
+                res2.append(F.normalize(x2_dropout, dim=1))
+
+        elif self.head_type == 'mlp':
+            for proj in self.proj:
+                res1.append(F.normalize(proj(f1), dim=1))
+                res2.append(F.normalize(proj(f2), dim=1))
+                
+        else:  # for linear
+            res1 = [F.normalize(self.proj(f1), dim=1)] * self.n_heads
+            res2 = [F.normalize(self.proj(f2), dim=1)] * self.n_heads
+        
+        
+        # Compute the mean and standard deviation of the representations
         feat1 = torch.mean(torch.stack(res1), dim=0)
         feat2 = torch.mean(torch.stack(res2), dim=0)
+        
         feat1_std = torch.sqrt(torch.var(torch.stack(res1), dim=0) + 0.0001)
         feat2_std = torch.sqrt(torch.var(torch.stack(res2), dim=0) + 0.0001)
         features = torch.cat([feat1.unsqueeze(1), feat2.unsqueeze(1)], dim=1)
@@ -215,6 +253,7 @@ class LinearClassifier(nn.Module):
         super(LinearClassifier, self).__init__()
 
         _, dim_in = model_dict[name]
+        print(f"number of classes is {num_classes}")
         self.fc = nn.Linear(dim_in, num_classes)
 
     def forward(self, features):
