@@ -164,12 +164,12 @@ class LinearBatchNorm(nn.Module):
     
 
 def MC_dropout(act_vec, p=0.5, mask=True):
-    return F.dropout(act_vec, p=0.5, training=mask, inplace=True)
+    return F.dropout(act_vec, p=p, training=mask, inplace=False)
 
 class conResNet(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='resnet50', head='mlp', feat_dim=128, n_heads=5):
+    def __init__(self, name='resnet50', head='mc-dropout', feat_dim=128, n_heads=5):
         super(conResNet, self).__init__()
 
         self.backbone_task = name
@@ -179,6 +179,7 @@ class conResNet(nn.Module):
         self.proj = []
         self.n_heads = n_heads
         self.head_type = head
+        self.pdrop = 0.5
 
         if head == 'linear':
             self.proj = nn.Linear(dim_in, feat_dim)
@@ -197,7 +198,7 @@ class conResNet(nn.Module):
             self.fc1 = nn.Linear(dim_in, dim_in)
             self.fc2 = nn.Linear(dim_in, dim_in)
             self.fc3 = nn.Linear(dim_in, feat_dim)
-            self.act = nn.ReLU(inplace=True)
+            self.act = nn.ReLU()
 
 
         else:
@@ -206,10 +207,10 @@ class conResNet(nn.Module):
         
     def apply_mc_dropout(self, x):
         # Apply MC-Dropout pattern using defined layers
-        x = MC_dropout(x, p=self.pdrop, mask=True)
         x = self.act(self.fc1(x))
         x = MC_dropout(x, p=self.pdrop, mask=True)
         x = self.act(self.fc2(x))
+        x = MC_dropout(x, p=self.pdrop, mask=True)
         x = self.fc3(x)  # No dropout after the last layer
         return x
 
@@ -228,7 +229,7 @@ class conResNet(nn.Module):
             for proj in self.proj:
                 res1.append(F.normalize(proj(f1), dim=1))
                 res2.append(F.normalize(proj(f2), dim=1))
-                
+
         else:  # for linear
             res1 = [F.normalize(self.proj(f1), dim=1)] * self.n_heads
             res2 = [F.normalize(self.proj(f2), dim=1)] * self.n_heads

@@ -140,7 +140,7 @@ def main():
             # logger.log_value('std', std_loss, epoch)
             checkpoint_file = os.path.join(
             "./checkpoints",
-            'simclr_{}_{}_recent_{}heads_lamda1{}_lamda2{}.pth'.format(opt.dataset, i, opt.nh,
+            '{}_{}_{}_recent_{}heads_lamda1{}_lamda2{}.pth'.format(opt.model, opt.dataset, i, opt.nh,
                                                                           opt.lamda1,
                                                                           opt.lamda2))
             torch.save(model.state_dict(), checkpoint_file)
@@ -153,7 +153,7 @@ def main():
             "./csv_loss/{}_c_{}heads_lamda1{}_lamda2{}.csv".format(opt.dataset, opt.nh, opt.lamda1, opt.lamda2))
         save_file = os.path.join(
             opt.save_folder,
-            'simclr_{}_{}_epoch{}_{}heads_lamda1{}_lamda2{}.pth'.format(opt.dataset, i, opt.epochs, opt.nh,
+            '{}_{}_{}_epoch{}_{}heads_lamda1{}_lamda2{}.pth'.format(opt.model, opt.dataset, i, opt.epochs, opt.nh,
                                                                           opt.lamda1,
                                                                           opt.lamda2))
         torch.save(model.state_dict(), save_file)
