@@ -2,7 +2,6 @@ import sys
 import time
 import torch
 from utils.util import AverageMeter, warmup_learning_rate
-from models.resnet_big import conResNet
 from models.ugraft import UGraft
 from utils.losses import UALoss
 import torch.backends.cudnn as cudnn
