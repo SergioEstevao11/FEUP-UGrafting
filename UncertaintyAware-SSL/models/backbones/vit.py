@@ -1,5 +1,5 @@
-# Vision Transformer (ViT) model implementation in PyTorch.
-# https://github.com/lucidrains/vit-pytorch/blob/main/vit_pytorch/vit.py
+# Encoder Vision Transformer (ViT) model implementation in PyTorch.
+# Adapted from: https://github.com/lucidrains/vit-pytorch/blob/main/vit_pytorch/vit.py
 
 import torch
 from torch import nn
@@ -83,9 +83,8 @@ class Transformer(nn.Module):
 
         return self.norm(x)
 
-class ViT(nn.Module):
-    def __init__(self, *, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, pool = 'cls', channels = 3, dim_head = 64, dropout = 0., emb_dropout = 0.):
-        super().__init__()
+class ViTEncoder(nn.Module):
+    def __init__(self, *, image_size, patch_size, dim, depth, heads, mlp_dim, channels=3, dim_head=64, dropout=0., emb_dropout=0.):
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
 
@@ -93,13 +92,10 @@ class ViT(nn.Module):
 
         num_patches = (image_height // patch_height) * (image_width // patch_width)
         patch_dim = channels * patch_height * patch_width
-        assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
-
+        
         self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width),
-            nn.LayerNorm(patch_dim),
             nn.Linear(patch_dim, dim),
-            nn.LayerNorm(dim),
         )
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
@@ -108,10 +104,6 @@ class ViT(nn.Module):
 
         self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
 
-        self.pool = pool
-        self.to_latent = nn.Identity()
-
-        self.mlp_head = nn.Linear(dim, num_classes)
 
     def forward(self, img):
         x = self.to_patch_embedding(img)
@@ -124,7 +116,24 @@ class ViT(nn.Module):
 
         x = self.transformer(x)
 
-        x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
+        # Removing the pooling layer to output embeddings directly
+        # If needed, you can reintroduce pooling logic here depending on your requirement
+        # For example, using mean pooling across the patch embeddings
+        x = x.mean(dim=1)
 
-        x = self.to_latent(x)
-        return self.mlp_head(x)
+        return x  # Return the embeddings for further processing
+
+
+def VisualTransformer(image_size=32, channels=3):
+    return ViTEncoder(
+        image_size=image_size, 
+        patch_size=16,      # 32×32, 16×16, and 14×14
+        dim=1024,           # changable
+        depth=6,            # changable
+        heads=8,            # changable
+        mlp_dim=2048,       # changable
+        channels=channels, 
+        dim_head=64,        # Typically 64
+        dropout=0.1,        # changable
+        emb_dropout=0.1     # changable
+    )

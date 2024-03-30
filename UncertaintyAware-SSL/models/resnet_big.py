@@ -209,8 +209,8 @@ class conResNet(nn.Module):
         # Apply MC-Dropout pattern using defined layers
         x = self.act(self.fc1(x))
         x = MC_dropout(x, p=self.pdrop, mask=True)
-        x = self.act(self.fc2(x))
-        x = MC_dropout(x, p=self.pdrop, mask=True)
+        x = self.act(x)
+        #x = MC_dropout(x, p=self.pdrop, mask=True)
         x = self.fc3(x)  # No dropout after the last layer
         return x
 

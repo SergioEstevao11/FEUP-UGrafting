@@ -78,7 +78,7 @@ def data_loader(dataset="cifar10", batch_size=512, semi=False, semi_percent=10, 
     return train_loader, val_loader, test_loader, targets
 
 
-def set_loader_simclr(dataset, batch_size, num_workers, data_dir='../../DATA2/', size=32):
+def set_loader_simclr(dataset, batch_size, num_workers, data_dir='../../DATA2/', size_randomcrop=32):
     # construct data loader
     if dataset == 'cifar10':
         mean = (0.4914, 0.4822, 0.4465)
@@ -94,7 +94,7 @@ def set_loader_simclr(dataset, batch_size, num_workers, data_dir='../../DATA2/',
     normalize = transforms.Normalize(mean=mean, std=std)
 
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(size=size, scale=(0.2, 1.)),
+        transforms.RandomResizedCrop(size=size_randomcrop, scale=(0.2, 1.)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomApply([
             transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
@@ -121,8 +121,9 @@ def set_loader_simclr(dataset, batch_size, num_workers, data_dir='../../DATA2/',
         raise ValueError(dataset)
 
     train_sampler = None
+    image_shape = (3, size_randomcrop, size_randomcrop)
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=batch_size, shuffle=(train_sampler is None),
         num_workers=num_workers, pin_memory=False, sampler=train_sampler)
 
-    return train_loader
+    return train_loader, image_shape

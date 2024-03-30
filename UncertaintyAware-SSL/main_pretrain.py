@@ -50,7 +50,7 @@ def parse_option():
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100'], help='dataset')
     parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
-    parser.add_argument('--size', type=int, default=32, help='parameter for RandomResizedCrop')
+    parser.add_argument('--size_randomcrop', type=int, default=32, help='parameter for RandomResizedCrop')
 
     # hyperparameters
     parser.add_argument('--temp', type=float, default=0.07,
@@ -103,15 +103,15 @@ def main():
     opt = parse_option()
     torch.cuda.empty_cache()
     # build data loader
-    train_loader = set_loader_simclr(dataset=opt.dataset, batch_size=opt.batch_size, num_workers=opt.num_workers,
-                                     size=opt.size)
+    train_loader, image_shape = set_loader_simclr(dataset=opt.dataset, batch_size=opt.batch_size, num_workers=opt.num_workers,
+                                     size_randomcrop=opt.size_randomcrop)
 
     for i in range(opt.ensemble):
         torch.manual_seed(i)
         torch.cuda.manual_seed(i)
         model, criterion = set_model(model_name=opt.model, temperature=opt.temp, syncBN=opt.syncBN, lamda1=opt.lamda1,
                                      lamda2=opt.lamda2,
-                                     batch_size=opt.batch_size, nh=opt.nh)
+                                     batch_size=opt.batch_size, nh=opt.nh, image_shape=image_shape)
 
         # build optimizer
         optimizer = set_optimizer(opt, model)

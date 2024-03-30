@@ -3,6 +3,7 @@ import time
 import torch
 from utils.util import AverageMeter, warmup_learning_rate
 from models.resnet_big import conResNet
+from models.ugraft import UGraft
 from utils.losses import UALoss
 import torch.backends.cudnn as cudnn
 from torch import nn
@@ -59,8 +60,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
 
 
 def set_model(model_name, temperature, syncBN=False, lamda1=1, lamda2=0.1,
-              batch_size=512, nh=5):
-    model = conResNet(name=model_name, n_heads=nh)
+              batch_size=512, nh=5, image_shape=(3, 32, 32)):
+    model = UGraft(name=model_name, n_heads=nh, image_shape=image_shape)
     criterion = UALoss(temperature=temperature, lamda1=lamda1, lamda2=lamda2, batch_size=batch_size)
 
     # enable synchronized Batch Normalization

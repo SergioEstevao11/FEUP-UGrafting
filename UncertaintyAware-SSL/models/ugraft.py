@@ -1,14 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from backbones.resnet import *
-from backbones.vit import *
+from models.backbones.resnet import *
+from models.backbones.vit import *
 
 model_dict = {
     'resnet18': [resnet18, 512],
     'resnet34': [resnet34, 512],
     'resnet50': [resnet50, 2048],
     'resnet101': [resnet101, 2048],
+    'vit' : [VisualTransformer, 123] # This is a dummy value
 }
 
 
@@ -28,21 +29,22 @@ class LinearBatchNorm(nn.Module):
     
 
 def MC_dropout(act_vec, p=0.5, mask=True):
-    return F.dropout(act_vec, p=0.5, training=mask, inplace=True)
+    return F.dropout(act_vec, p=p, training=mask, inplace=False)
 
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='resnet50', head='mc-dropout', feat_dim=128, n_heads=5):
+    def __init__(self, name='resnet50', head='mc-dropout', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
 
         self.backbone_task = name
         model_fun, dim_in = model_dict[name]
         self.total_var = 0
-        self.encoder = model_fun()
+        self.encoder = model_fun() #TODO Add arguments passing to the model
         self.proj = []
         self.n_heads = n_heads
         self.head_type = head
+        self.pdrop = 0.5
 
         if head == 'linear':
             self.proj = nn.Linear(dim_in, feat_dim)
@@ -61,7 +63,7 @@ class UGraft(nn.Module):
             self.fc1 = nn.Linear(dim_in, dim_in)
             self.fc2 = nn.Linear(dim_in, dim_in)
             self.fc3 = nn.Linear(dim_in, feat_dim)
-            self.act = nn.ReLU(inplace=True)
+            self.act = nn.ReLU(inplace=False)
 
 
         else:
