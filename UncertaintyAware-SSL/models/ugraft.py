@@ -34,7 +34,7 @@ def MC_dropout(act_vec, p=0.5, mask=True):
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='vit', head='mc-dropout', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
+    def __init__(self, name='vit', head='direct-modelling', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
 
         self.backbone_task = name
@@ -58,6 +58,24 @@ class UGraft(nn.Module):
                     nn.Linear(dim_in, feat_dim)
                 )
                 self.proj.append(pro)
+        
+        elif head == "direct-modelling":
+            self.n_heads = 1
+            self.proj_mean = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(dim_in, dim_in),
+                nn.ReLU(inplace=False),
+                nn.Linear(dim_in, feat_dim)
+            ) for _ in range(n_heads)
+            ])
+            self.proj_variance = nn.ModuleList([
+                nn.Sequential(
+                    nn.Linear(dim_in, dim_in),
+                    nn.ReLU(inplace=False),
+                    nn.Linear(dim_in, feat_dim),
+                    nn.Softplus()  # Ensures variance is positive
+                ) for _ in range(n_heads)
+            ])
 
         elif head == 'mc-dropout':
             self.fc1 = nn.Linear(dim_in, dim_in)
@@ -94,6 +112,36 @@ class UGraft(nn.Module):
             for proj in self.proj:
                 res1.append(F.normalize(proj(f1), dim=1))
                 res2.append(F.normalize(proj(f2), dim=1))
+        
+        elif self.head_type == 'direct-modelling':
+            res1_mean, res2_mean = [], []
+            res1_variance, res2_variance = [], []
+
+            for i in range(self.n_heads):
+                # Project to mean and variance
+                mean1 = self.proj_mean[i](f1)
+                variance1 = self.proj_variance[i](f1) + 1e-6  # Ensure non-zero variance for stability
+                
+                mean2 = self.proj_mean[i](f2)
+                variance2 = self.proj_variance[i](f2) + 1e-6
+                
+                # Normalize the means for stability in contrastive learning
+                res1_mean.append(F.normalize(mean1, dim=1))
+                res2_mean.append(F.normalize(mean2, dim=1))
+                
+                res1_variance.append(variance1)
+                res2_variance.append(variance2)
+
+            feat1_mean = torch.mean(torch.stack(res1_mean), dim=0)
+            feat2_mean = torch.mean(torch.stack(res2_mean), dim=0)
+            features_mean = torch.cat([feat1_mean.unsqueeze(1), feat2_mean.unsqueeze(1)], dim=1)
+            
+            feat1_variance = torch.mean(torch.stack(res1_variance), dim=0)
+            feat2_variance = torch.mean(torch.stack(res2_variance), dim=0)
+            features_variance = torch.cat([feat1_variance.unsqueeze(1), feat2_variance.unsqueeze(1)], dim=1)
+
+            return features_mean, features_variance
+
                 
         else:  # for linear
             res1 = [F.normalize(self.proj(f1), dim=1)] * self.n_heads
