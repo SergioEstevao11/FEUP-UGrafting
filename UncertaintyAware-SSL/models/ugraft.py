@@ -34,7 +34,7 @@ def MC_dropout(act_vec, p=0.5, mask=True):
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='vit', head='direct-modelling', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
+    def __init__(self, name='resnet50', head='mc-dropout', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
 
         self.backbone_task = name
@@ -156,6 +156,8 @@ class UGraft(nn.Module):
         feat2_std = torch.sqrt(torch.var(torch.stack(res2), dim=0) + 0.0001)
         features = torch.cat([feat1.unsqueeze(1), feat2.unsqueeze(1)], dim=1)
         features_std = torch.cat([feat1_std.unsqueeze(1), feat2_std.unsqueeze(1)], dim=1)
+
+        print("U-Graft features shape: ", features.shape, features_std.shape)
 
         return features, features_std
 

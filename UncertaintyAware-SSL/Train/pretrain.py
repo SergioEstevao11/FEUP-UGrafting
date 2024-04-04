@@ -6,7 +6,7 @@ from models.ugraft import UGraft
 from utils.losses import UALoss
 import torch.backends.cudnn as cudnn
 from torch import nn
-
+from plotting.UQ_viz import *
 
 def train(train_loader, model, criterion, optimizer, epoch, opt):
     """one epoch training"""
@@ -54,6 +54,13 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
                 epoch, idx + 1, len(train_loader), batch_time=batch_time,
                 data_time=data_time, loss=losses))
             sys.stdout.flush()
+
+        #on last batch of epoch
+        if idx == 10:
+            print(features.shape)
+            print(features_std.shape)
+            #plot uncertainty
+            visualize_with_tsne_3d(features, features_std)
 
     return losses.avg, stdlosses.avg, stdlosses2.avg
 
