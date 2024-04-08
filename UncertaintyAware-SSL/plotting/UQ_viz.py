@@ -4,6 +4,7 @@ import seaborn as sns
 import pandas as pd
 import datetime as dt
 from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 
 # Overlaying uncertainty on an image
 def plot_uncertainty_overlay(image, uncertainty_map):
@@ -41,8 +42,7 @@ def visualize_with_tsne(features, uncertainties):
 
     # Fit-transform with t-SNE
     tsne_results = tsne.fit_transform(features_np)
-    print(tsne_results.shape)
-    print(uncertainties.shape)
+    
     # Create a DataFrame for visualization
     df = pd.DataFrame({
         'TSNE-2d-one': tsne_results[:, 0],
@@ -114,3 +114,60 @@ def visualize_with_tsne_3d(features, uncertainties):
     plt.subplots_adjust(right=0.9)  # Adjust the main figure to make space for colorbar
     plt.savefig(f"3d_tsne_uncertainty_{dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png")
     plt.show()
+
+
+
+def visualize_with_3d_histogram(features, uncertainties):
+    # Assuming features is a Tensor and uncertainties is a Tensor of standard deviations
+    features = features.cpu().numpy() if features.is_cuda else features.numpy()
+    uncertainties = uncertainties.cpu().numpy() if uncertainties.is_cuda else uncertainties.numpy()
+
+    # Flatten the uncertainties if they are not already 1D
+    if uncertainties.ndim > 1:
+        uncertainties = np.mean(uncertainties, axis=1)
+
+    # Apply t-SNE to reduce dimensions to three
+    tsne = TSNE(n_components=3, perplexity=30, random_state=42)
+    tsne_results = tsne.fit_transform(features)
+
+    # Create a figure for the histogram
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Compute the histogram data
+    hist, edges = np.histogramdd(tsne_results, bins=20, density=True, weights=uncertainties)
+
+    # Generate bin centers from edges
+    xedges, yedges, zedges = edges
+    x_pos = 0.5 * (xedges[:-1] + xedges[1:])
+    y_pos = 0.5 * (yedges[:-1] + yedges[1:])
+    z_pos = 0.5 * (zedges[:-1] + zedges[1:])
+
+    xpos, ypos, zpos = np.meshgrid(x_pos, y_pos, z_pos, indexing="ij")
+    xpos = xpos.flatten()
+    ypos = ypos.flatten()
+    zpos = zpos.flatten()
+    dx = dy = dz = np.ones_like(xpos) * (xedges[1] - xedges[0])
+
+    # Normalize uncertainties for color mapping
+    colors = plt.cm.viridis((hist - hist.min()) / (hist.max() - hist.min()))
+
+    # Plotting the histogram
+    ax.bar3d(xpos, ypos, np.zeros_like(zpos), dx, dy, zpos, color=colors.flatten(), zsort='average')
+    plt.title('3D Histogram with t-SNE and Uncertainty Coloring')
+    plt.xlabel('t-SNE Dimension 1')
+    plt.ylabel('t-SNE Dimension 2')
+    ax.set_zlabel('t-SNE Dimension 3')
+
+    # Adding a color bar
+    sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=plt.Normalize(vmin=hist.min(), vmax=hist.max()))
+    sm.set_array([])
+    cbar = plt.colorbar(sm, shrink=0.5, aspect=20)
+    cbar.set_label('Uncertainty')
+
+    plt.show()
+
+# Example usage:
+# Assuming `features` is a tensor of shape (N, 3) and `features_std` is a tensor of shape (N, 3)
+# where N is the number of samples and each sample has 3 features.
+# visualize_with_3d_histogram(features, features_std)

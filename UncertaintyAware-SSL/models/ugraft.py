@@ -9,7 +9,7 @@ model_dict = {
     'resnet34': [resnet34, 512],
     'resnet50': [resnet50, 2048],
     'resnet101': [resnet101, 2048],
-    'vit' : [VisualTransformer, 123] # This is a dummy value
+    'vit' : [VisualTransformer, 1024]
 }
 
 
@@ -34,7 +34,7 @@ def MC_dropout(act_vec, p=0.5, mask=True):
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='resnet50', head='mc-dropout', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
+    def __init__(self, name='vit', head='mlp', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
 
         self.backbone_task = name
@@ -61,6 +61,7 @@ class UGraft(nn.Module):
         
         elif head == "direct-modelling":
             self.n_heads = 1
+            
             self.proj_mean = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(dim_in, dim_in),
@@ -68,12 +69,13 @@ class UGraft(nn.Module):
                 nn.Linear(dim_in, feat_dim)
             ) for _ in range(n_heads)
             ])
+
             self.proj_variance = nn.ModuleList([
                 nn.Sequential(
                     nn.Linear(dim_in, dim_in),
                     nn.ReLU(inplace=False),
                     nn.Linear(dim_in, feat_dim),
-                    nn.Softplus()  # Ensures variance is positive
+                    nn.Softplus()  # to ensure variance is positive
                 ) for _ in range(n_heads)
             ])
 
@@ -157,7 +159,6 @@ class UGraft(nn.Module):
         features = torch.cat([feat1.unsqueeze(1), feat2.unsqueeze(1)], dim=1)
         features_std = torch.cat([feat1_std.unsqueeze(1), feat2_std.unsqueeze(1)], dim=1)
 
-        print("U-Graft features shape: ", features.shape, features_std.shape)
 
         return features, features_std
 
@@ -169,7 +170,6 @@ class LinearClassifier(nn.Module):
         super(LinearClassifier, self).__init__()
 
         _, dim_in = model_dict[name]
-        print(f"number of classes is {num_classes}")
         self.fc = nn.Linear(dim_in, num_classes)
 
     def forward(self, features):

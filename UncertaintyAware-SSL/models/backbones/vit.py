@@ -3,7 +3,6 @@
 
 import torch
 from torch import nn
-
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
@@ -85,6 +84,7 @@ class Transformer(nn.Module):
 
 class ViTEncoder(nn.Module):
     def __init__(self, *, image_size, patch_size, dim, depth, heads, mlp_dim, channels=3, dim_head=64, dropout=0., emb_dropout=0.):
+        super(ViTEncoder, self).__init__()  # This line is necessary and was missing
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
 
