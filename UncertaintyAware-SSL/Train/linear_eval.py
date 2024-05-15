@@ -17,6 +17,8 @@ class MyDataParallel(torch.nn.DataParallel):
 
 
 def set_model_linear(model_name, number_cls, path, nh=5):
+    print(f"==============Model: {model_name}")
+    
     model = UGraft(name=model_name, n_heads=nh)
     criterion = torch.nn.CrossEntropyLoss()
     print(f"==============Number of classes: {number_cls}")
@@ -46,7 +48,7 @@ def set_model_linear(model_name, number_cls, path, nh=5):
 
 def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
     """one epoch training"""
-    model.eval()
+    #model.eval()
     classifier.train()
 
     batch_time = AverageMeter()

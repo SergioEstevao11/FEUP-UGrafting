@@ -34,9 +34,10 @@ def MC_dropout(act_vec, p=0.5, mask=True):
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='vit', head='mlp', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
+    def __init__(self, name='vit', head='mc-dropout', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
-
+        print(f"Using backbone: {name}", 
+              f" with head: {head}")
         self.backbone_task = name
         model_fun, dim_in = model_dict[name]
         self.total_var = 0
@@ -60,24 +61,18 @@ class UGraft(nn.Module):
                 self.proj.append(pro)
         
         elif head == "direct-modelling":
-            self.n_heads = 1
-            
-            self.proj_mean = nn.ModuleList([
-            nn.Sequential(
+
+            self.common_path = nn.Sequential(
                 nn.Linear(dim_in, dim_in),
                 nn.ReLU(inplace=False),
-                nn.Linear(dim_in, feat_dim)
-            ) for _ in range(n_heads)
-            ])
+            )
+            
+            self.proj_linear = nn.Linear(dim_in, feat_dim)
 
-            self.proj_variance = nn.ModuleList([
-                nn.Sequential(
-                    nn.Linear(dim_in, dim_in),
-                    nn.ReLU(inplace=False),
+            self.proj_variance = nn.Sequential(
                     nn.Linear(dim_in, feat_dim),
                     nn.Softplus()  # to ensure variance is positive
-                ) for _ in range(n_heads)
-            ])
+            ) 
 
         elif head == 'mc-dropout':
             self.fc1 = nn.Linear(dim_in, dim_in)
@@ -119,20 +114,23 @@ class UGraft(nn.Module):
             res1_mean, res2_mean = [], []
             res1_variance, res2_variance = [], []
 
-            for i in range(self.n_heads):
+            f1 = self.common_path(f1)
+            f2 = self.common_path(f2)
+
+            #for i in range(self.n_heads):
                 # Project to mean and variance
-                mean1 = self.proj_mean[i](f1)
-                variance1 = self.proj_variance[i](f1) + 1e-6  # Ensure non-zero variance for stability
-                
-                mean2 = self.proj_mean[i](f2)
-                variance2 = self.proj_variance[i](f2) + 1e-6
-                
-                # Normalize the means for stability in contrastive learning
-                res1_mean.append(F.normalize(mean1, dim=1))
-                res2_mean.append(F.normalize(mean2, dim=1))
-                
-                res1_variance.append(variance1)
-                res2_variance.append(variance2)
+            mean1 = self.proj_linear(f1)
+            variance1 = self.proj_variance(f1) + 1e-6  # Ensure non-zero variance for stability
+            
+            mean2 = self.proj_linear(f2)
+            variance2 = self.proj_variance(f2) + 1e-6
+            
+            # Normalize the means for stability in contrastive learning
+            res1_mean.append(F.normalize(mean1, dim=1))
+            res2_mean.append(F.normalize(mean2, dim=1))
+            
+            res1_variance.append(variance1)
+            res2_variance.append(variance2)
 
             feat1_mean = torch.mean(torch.stack(res1_mean), dim=0)
             feat2_mean = torch.mean(torch.stack(res2_mean), dim=0)
@@ -158,6 +156,10 @@ class UGraft(nn.Module):
         feat2_std = torch.sqrt(torch.var(torch.stack(res2), dim=0) + 0.0001)
         features = torch.cat([feat1.unsqueeze(1), feat2.unsqueeze(1)], dim=1)
         features_std = torch.cat([feat1_std.unsqueeze(1), feat2_std.unsqueeze(1)], dim=1)
+
+        # 10x encodings
+
+        # 
 
 
         return features, features_std

@@ -50,7 +50,7 @@ def parse_option():
     # model dataset
     parser.add_argument('--model', type=str, default='resnet50')
     parser.add_argument('--dataset', type=str, default='cifar10',
-                        choices=['cifar10', 'cifar100'], help='dataset')
+                        choices=['cifar10', 'cifar100', 'svhn'], help='dataset')
     parser.add_argument('--data_folder', type=str, default='.',
                         help='path to dataset')
 
@@ -135,11 +135,18 @@ def main():
         torch.cuda.manual_seed(i)
         model, classifier, criterion = set_model_linear(model_name=opt.model, number_cls=num_classes, path=opt.ckpt,
                                                         nh=opt.nh)
-
+        for param in model.parameters():
+            param.requires_grad = False
         # build optimizer
         optimizer = set_optimizer(opt, classifier)
         print('ensemble number is {}:'.format(i))
         # training routine
+
+
+        loss_l = []
+        acc_l = []
+        val_acc_l = []
+        val_loss_l = []
 
         for epoch in range(1, opt.epochs + 1):
             adjust_learning_rate(opt, optimizer, epoch)
@@ -159,6 +166,12 @@ def main():
             writer.add_scalar('train/learning_rate', optimizer.param_groups[0]['lr'], epoch)
             writer.add_scalar('accuracy', val_acc, epoch)
             writer.add_scalar("Loss/eval", val_loss, epoch)
+
+            loss_l.append(loss)
+            acc_l.append(acc)
+            val_acc_l.append(val_acc)
+            val_loss_l.append(val_loss)
+
             if val_acc > best_acc:
                 best_epoch = epoch
                 best_acc = val_acc
@@ -175,10 +188,12 @@ def main():
 
             opt.classifier_path = os.path.join(
                 opt.classifier_path,
-                'simclr_semi-linear_{}_epoch{}_percent{}_{}heads_lamda1{}_lamda2{}.pth'.format(
-                           opt.dataset, i,
+                '{}_{}_semi-linear_{}_epoch{}_{}heads_lamda1{}_lamda2{}.pth'.format(
+                            opt.model,
+                            model.head_type,
+                           opt.dataset,
+                           i,
                            opt.epochs,
-                           opt.semi_percent,
                            opt.nh,
                            opt.lamda1,
                            opt.lamda2))
@@ -187,13 +202,21 @@ def main():
         else:
             opt.classifier_path = os.path.join(
                 opt.classifier_path,
-                'simclr_linear_{}_epoch{}_{}heads_lamda1{}_lamda2{}.pth'.format(
+                '{}_{}_linear_{}_epoch{}_{}heads_lamda1{}_lamda2{}.pth'.format(
+                            opt.model,
+                            model.head_type,
                            opt.dataset,
                            i,
                            opt.epochs,
                            opt.nh,
                            opt.lamda1,
                            opt.lamda2))
+            
+        print("acc_l", acc_l)
+        print("val_acc_l", val_acc_l)
+        print("loss_l", loss_l)
+        print("val_loss_l", val_loss_l)
+
 
 
         torch.save(best_classifier.state_dict(),

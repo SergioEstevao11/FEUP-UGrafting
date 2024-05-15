@@ -77,15 +77,30 @@ def set_model(model_name, temperature, syncBN=False, lamda1=1, lamda2=0.1,
 
     return model, criterion
 
-def evaluate_uncertainty(val_loader, model): #measure uncertainty for test dataset - return list with UQ values - plot it after
+def evaluate_uncertainty(val_loader, model):
+    model.eval()  # Set the model to evaluation mode
+    test_features = []
+    test_features_std = []
+    test_labels = []
+
+    with torch.no_grad():  # Disable gradient calculation
+        for idx, ((image1, image2), labels) in enumerate(val_loader):
+            if torch.cuda.is_available():
+                image1 = image1.cuda(non_blocking=True)
+                image2 = image2.cuda(non_blocking=True)
+                labels = labels.cuda(non_blocking=True)
             
-    model.eval()
-    with torch.no_grad():
-        true_y, pred_y = [], []
-        for idx, (images, labels) in enumerate(val_loader):
-            images = images.float().cuda()
-            labels = labels.cuda()
-            # output = classifier(model.encoder(images))
-            true_y.extend(labels.cpu())
-            pred_y.extend(torch.argmax(output, dim=1).cpu())
-    return 0
+            # Get features and uncertainties from the model
+            features, features_std = model(image1, image2)
+       
+            
+            test_features.append(features)
+            test_features_std.append(features_std)
+            test_labels.append(labels)
+
+    # Concatenate the list of tensors into a single tensor
+    test_features = torch.cat(test_features, dim=0)
+    test_features_std = torch.cat(test_features_std, dim=0)
+    test_labels = torch.cat(test_labels, dim=0)
+
+    return test_features, test_features_std, test_labels

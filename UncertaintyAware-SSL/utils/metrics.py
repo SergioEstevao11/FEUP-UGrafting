@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.special import softmax
-
+from sklearn.metrics import log_loss, average_precision_score, roc_auc_score, \
+                            precision_score, recall_score, f1_score
 
 class CELoss(object):
 
@@ -150,3 +151,86 @@ class ACELoss(TACELoss):
 
     def loss(self, output, labels, n_bins=15, logits=True):
         return super().loss(output, labels, 0.0, n_bins, logits)
+
+
+class BrierScore:
+    def __init__(self):
+        pass
+    
+    def score(self, true_labels, prob_predictions):
+        """
+        Calculate the Brier score for binary classification.
+        
+        Parameters:
+            true_labels (array): Actual true labels of the data (0 or 1).
+            prob_predictions (array): Predicted probabilities for the positive class (1).
+        
+        Returns:
+            float: Brier score.
+        """
+        return np.mean((prob_predictions - true_labels) ** 2)
+    
+
+class LogLoss:
+    def __init__(self):
+        pass
+    
+    def compute(self, true_labels, prob_predictions):
+        """
+        Calculate log loss (cross-entropy loss) between true labels and predicted probabilities.
+        
+        Parameters:
+            true_labels (array): True labels of the data.
+            prob_predictions (array): Predicted probabilities for each class.
+            
+        Returns:
+            float: Log loss value.
+        """
+        return log_loss(true_labels, prob_predictions)
+    
+class ClassificationMetrics:
+    def __init__(self):
+        pass
+    
+    def precision(self, true_labels, predictions):
+        return precision_score(true_labels, predictions)
+    
+    def recall(self, true_labels, predictions):
+        return recall_score(true_labels, predictions)
+    
+    def f1(self, true_labels, predictions):
+        return f1_score(true_labels, predictions)
+    
+class AUCROC:
+    def __init__(self):
+        pass
+    
+    def score(self, true_labels, prob_predictions):
+        """
+        Compute AUC-ROC score.
+        
+        Parameters:
+            true_labels (array): True binary labels.
+            prob_predictions (array): Probability estimates for the positive class.
+            
+        Returns:
+            float: AUC-ROC score.
+        """
+        return roc_auc_score(true_labels, prob_predictions)
+    
+class AUCPR:
+    def __init__(self):
+        pass
+    
+    def score(self, true_labels, prob_predictions):
+        """
+        Compute AUC of the precision-recall curve.
+        
+        Parameters:
+            true_labels (array): True binary labels.
+            prob_predictions (array): Probability estimates for the positive class.
+            
+        Returns:
+            float: AUC-PR score.
+        """
+        return average_precision_score(true_labels, prob_predictions)
