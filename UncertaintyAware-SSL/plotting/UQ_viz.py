@@ -9,7 +9,7 @@ from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
 import numpy as np
 import torch
-from sklearn.metrics import precision_recall_curve, auc
+from sklearn.metrics import precision_recall_curve, auc, average_precision_score
 from sklearn.preprocessing import label_binarize
 from itertools import cycle
 
@@ -343,6 +343,10 @@ def plot_precision_recall_curve_multiclass(true_labels, prob_predictions, n_clas
     # Binarize the labels for multiclass
     true_labels_bin = label_binarize(true_labels, classes=range(n_classes))
     
+    # Print shapes for debugging
+    print(f"true_labels_bin.shape: {true_labels_bin.shape}")
+    print(f"prob_predictions.shape: {prob_predictions.shape}")
+    
     # Check if predictions are already in one-hot format (required shape [n_samples, n_classes])
     if prob_predictions.ndim == 1 or prob_predictions.shape[1] == 1:
         raise ValueError("prob_predictions should have shape [n_samples, n_classes] for multiclass classification.")
@@ -365,4 +369,38 @@ def plot_precision_recall_curve_multiclass(true_labels, prob_predictions, n_clas
     plt.ylabel('Precision')
     plt.title('Extension of Precision-Recall curve to multi-class')
     plt.legend(loc="upper right")
+    plt.show()
+
+def plot_average_precision_recall_curve(true_labels, prob_predictions, n_classes):
+    true_labels_bin = label_binarize(true_labels, classes=range(n_classes))
+    
+    # Micro-averaging (binary classif. approach) -> agregates true positives, false positives, and false negatives across all classes then computes metrics
+    precision_micro, recall_micro, _ = precision_recall_curve(true_labels_bin.ravel(), prob_predictions.ravel())
+    average_precision_micro = average_precision_score(true_labels_bin, prob_predictions, average='micro')
+
+    # Macro-averaging -> computes each metric individually and then does the average
+    precision_macro = []
+    recall_macro = np.linspace(0, 1, 100)
+    
+    for i in range(n_classes):
+        precision, recall, _ = precision_recall_curve(true_labels_bin[:, i], prob_predictions[:, i])
+        precision_interp = np.interp(recall_macro, recall[::-1], precision[::-1])
+        precision_macro.append(precision_interp)
+        
+    precision_macro = np.mean(precision_macro, axis=0)
+    average_precision_macro = average_precision_score(true_labels_bin, prob_predictions, average='macro')
+
+    plt.figure(figsize=(12, 8))
+
+    # Micro-averaging plot
+    plt.plot(recall_micro, precision_micro, color='b', lw=2, label=f'Micro-average (area = {average_precision_micro:.2f})')
+
+    # Macro-averaging plot
+    plt.plot(recall_macro, precision_macro, color='r', lw=2, label=f'Macro-average (area = {average_precision_macro:.2f})')
+
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Average Precision-Recall Curve')
+    plt.legend(loc='best')
+    plt.grid(True)
     plt.show()

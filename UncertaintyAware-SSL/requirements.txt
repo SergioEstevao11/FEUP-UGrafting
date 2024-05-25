@@ -9,3 +9,5 @@ scipy
 tensorboard_logger
 torch
 torchvision
+einops
+seaborn

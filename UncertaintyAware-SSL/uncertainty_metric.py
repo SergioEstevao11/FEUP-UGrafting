@@ -50,7 +50,7 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
         for i in range(n):
             linear_model_path =model_dir
             simclr_path =classifier_dir
-            model, classifier, criterion = set_model_linear("resnet18", n_cls, simclr_path, nh=nh)
+            model, classifier, criterion = set_model_linear("resnet50", n_cls, simclr_path, nh=nh)
             classifier.load_state_dict(torch.load(linear_model_path))
             linear_model = MyEnsemble(model.encoder, classifier).cuda().eval()
             probs_ensemble2_model.append(predict(test_loader, linear_model, laplace=False))
@@ -60,7 +60,7 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
             linear_model_path = model_dir
             simclr_path = classifier_dir
             print(f"nh is {nh}")
-            model, classifier, criterion = set_model_linear("resnet18", n_cls, simclr_path, nh=nh)
+            model, classifier, criterion = set_model_linear("resnet50", n_cls, simclr_path, nh=nh)
             classifier.load_state_dict(torch.load(linear_model_path))
             linear_model = MyEnsemble(model.encoder, classifier).cuda().eval()
             prediction = predict(test_loader, linear_model, laplace=False)
@@ -84,10 +84,8 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
     nll_ensemble2 = -dists.Categorical(torch.softmax(torch.tensor(probs_ensemble2), dim=-1)).log_prob(
         torch.tensor(targets)).mean()
     
-    true_labels = np.array(targets)
-    prob_predictions = probs_ensemble2[:, 1]  # Assuming binary classification and prob of positive class is at index 1
-    #plot_precision_recall_curve_multiclass(true_labels, prob_predictions, n_cls)
-
+    plot_precision_recall_curve_multiclass(targets, probs_ensemble2, n_cls) 
+    plot_average_precision_recall_curve(targets, probs_ensemble2, n_cls)
     results = {
         "ACCURACY": 100 * acc_ensemble2,
         "NLL": 1 * nll_ensemble2.numpy(),

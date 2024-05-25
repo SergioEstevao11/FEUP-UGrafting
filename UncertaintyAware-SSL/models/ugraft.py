@@ -5,11 +5,11 @@ from models.backbones.resnet import *
 from models.backbones.vit import *
 
 model_dict = {
-    'resnet18': [resnet18, 512],
-    'resnet34': [resnet34, 512],
-    'resnet50': [resnet50, 2048],
-    'resnet101': [resnet101, 2048],
-    'vit' : [VisualTransformer, 1024]
+    'resnet18': [lambda image_size, channels: resnet18(in_channel=channels), 512],
+    'resnet34': [lambda image_size, channels: resnet34(in_channel=channels), 512],
+    'resnet50': [lambda image_size, channels: resnet50(in_channel=channels), 2048],
+    'resnet101': [lambda image_size, channels: resnet101(in_channel=channels), 2048],
+    'vit' : [lambda image_size, channels: VisualTransformer(image_size=image_size, channels=channels), 1024]
 }
 
 
@@ -34,14 +34,14 @@ def MC_dropout(act_vec, p=0.5, mask=True):
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='vit', head='mc-dropout', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
+    def __init__(self, name='resnet50', head='mlp', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
         print(f"Using backbone: {name}", 
               f" with head: {head}")
         self.backbone_task = name
         model_fun, dim_in = model_dict[name]
         self.total_var = 0
-        self.encoder = model_fun() #TODO Add arguments passing to the model
+        self.encoder = model_fun(image_shape[1], image_shape[0])
         self.proj = []
         self.n_heads = n_heads
         self.head_type = head

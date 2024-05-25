@@ -193,7 +193,7 @@ def dataloader_UQ(dataset, batch_size, num_workers, data_dir='../../DATA2/', siz
     elif dataset == "svhn":
         mean = (0.4376821, 0.4437697, 0.47280442)
         std = (0.19803012, 0.20101562, 0.19703614)
-    elif dataset == "tinyimagenet":
+    elif dataset == "imagenet":
         mean = (0.4802, 0.4481, 0.3975) #dummy
         std = (0.2770, 0.2691, 0.2821) #dummy
     else:
@@ -201,8 +201,10 @@ def dataloader_UQ(dataset, batch_size, num_workers, data_dir='../../DATA2/', siz
     normalize = transforms.Normalize(mean=mean, std=std)
 
     #data transformations
+    crop_size = size_randomcrop
+
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(size=size_randomcrop, scale=(0.2, 1.)),
+        transforms.RandomResizedCrop(size=crop_size, scale=(0.2, 1.)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomApply([
             transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
@@ -236,8 +238,10 @@ def dataloader_UQ(dataset, batch_size, num_workers, data_dir='../../DATA2/', siz
             root=data_dir, split="test", download=True, transform=TwoCropTransform(val_transform)
         )
 
-    elif dataset == "tinyimagenet":
+    elif dataset == "imagenet":
+        crop_size = 64
         data_transform = DataAugmentationDINO(
+            image_size = crop_size,
             global_crops_scale=(0.4, 1.0), 
             local_crops_scale=(0.05, 0.4), 
             local_crops_number=6
@@ -245,15 +249,15 @@ def dataloader_UQ(dataset, batch_size, num_workers, data_dir='../../DATA2/', siz
 
         # train_dataset = datasets.ImageFolder(root='../../DATA2/tiny-imagenet-200/train', transform=data_transform)
         # test_dataset = datasets.ImageFolder(root='../../DATA2/tiny-imagenet-200/val', transform=val_transform)
-        train_dataset = datasets.ImageNet(root='../../DATA2/', train=True, download=True, transform=data_transform)
-        test_dataset = datasets.ImageNet(root='../../DATA2/', train=False, download=True, transform=val_transform)
+        train_dataset = datasets.ImageNet(root='../../', split="train", transform=data_transform)
+        test_dataset = datasets.ImageNet(root='../../', split="val", transform=TwoCropTransform(val_transform))
 
     else:
         raise ValueError(dataset)
 
     print(f"train dataset length is {len(train_dataset)}")
     train_sampler = None
-    image_shape = (3, size_randomcrop, size_randomcrop)
+    image_shape = (3, crop_size, crop_size)
 
 
    
@@ -267,4 +271,3 @@ def dataloader_UQ(dataset, batch_size, num_workers, data_dir='../../DATA2/', siz
                              drop_last=False)
 
     return train_loader, image_shape, test_loader
-

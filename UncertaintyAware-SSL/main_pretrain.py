@@ -164,7 +164,7 @@ def main():
                                                                           opt.lamda1,
                                                                           opt.lamda2))
             #PLOTTING
-            if epoch % 1 == 0:
+            if epoch % 4 == 0:
                 features, std, labels = evaluate_uncertainty(test_loader, model)
                 # UQ_l.append(std)
                 # feats.append(features)
