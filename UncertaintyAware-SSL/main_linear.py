@@ -202,7 +202,7 @@ def main():
         else:
             opt.classifier_path = os.path.join(
                 opt.classifier_path,
-                '{}_{}_linear_{}_epoch{}_{}heads_lamda1{}_lamda2{}.pth'.format(
+                '{}_{}_linear_{}_epoch{}_{}heads_lamda1{}_lamda2{}_withUQ.pth'.format(
                             opt.model,
                             model.head_type,
                            opt.dataset,

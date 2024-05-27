@@ -101,3 +101,37 @@ def calc_metrics_transformed(ind_score: np.ndarray, ood_score: np.ndarray) -> di
         #   "Detection Acc.": 100 * 0.5 * (tpr + 1 - fpr).max(),
     }
     return metric_dict_transformed
+
+
+import numpy as np
+
+def thresholding_mechanism(predictions, variances, method='top_percent'):
+    """
+    Apply a thresholding mechanism to filter out predictions based on variance.
+    
+    Parameters:
+    - variances: np.array, shape (10000, 128), the variances for each prediction
+    - predictions: np.array, shape (10000, 10), the prediction probabilities for each class
+    - method: str, 'average' or 'top_10_percent', the method to determine the threshold
+    
+    Returns:
+    - filtered_predictions: np.array, filtered predictions based on the chosen threshold
+    - accepted_indices: np.array, indices of the accepted predictions
+    """
+    if method == 'average':
+        threshold = np.mean(variances)
+    elif method == 'top_percent':
+        threshold = np.percentile(variances, 70)
+    else:
+        raise ValueError("Method should be either 'average' or 'top_10_percent'")
+    
+    # Calculate the mean variance for each prediction
+    mean_variances = np.mean(variances, axis=1)
+    
+    # Get the indices of the predictions that are below the threshold
+    accepted_indices = np.where(mean_variances <= threshold)[0]
+    
+    # Filter predictions based on the accepted indices
+    filtered_predictions = predictions[accepted_indices]
+    
+    return filtered_predictions, accepted_indices

@@ -1,11 +1,12 @@
 import sys
 import time
 import torch
-from utils.util import AverageMeter, accuracy
+from utils.util import AverageMeter, accuracy, warmup_learning_rate
 from models.ugraft import UGraft, LinearClassifier
 import torch.backends.cudnn as cudnn
 from torch import nn
 from sklearn.metrics import classification_report
+
 
 
 class MyDataParallel(torch.nn.DataParallel):
@@ -22,7 +23,14 @@ def set_model_linear(model_name, number_cls, path, nh=5):
     model = UGraft(name=model_name, n_heads=nh)
     criterion = torch.nn.CrossEntropyLoss()
     print(f"==============Number of classes: {number_cls}")
-    classifier = LinearClassifier(name=model_name, num_classes=number_cls)
+
+    # give me the model's last dim dimensions
+    
+
+
+    # classifier = LinearClassifier(name=model, num_classes=number_cls)
+    classifier = LinearClassifier(embedding_dim=128, num_classes=number_cls)
+
 
     ckpt = torch.load(path)
     state_dict = ckpt
@@ -55,6 +63,7 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
     data_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
+    top5 = AverageMeter()
     schedular = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
     end = time.time()
     for idx, (images, labels) in enumerate(train_loader):
@@ -66,11 +75,11 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
         # if opt.pu:
         #     images = images.reshape(images.shape[0], 3, 32, 32).float()
         # warm-up learning rate
-        # warmup_learning_rate(opt, epoch, idx, len(train_loader), optimizer)
+        warmup_learning_rate(opt, epoch, idx, len(train_loader), optimizer)
 
         # compute loss
         with torch.no_grad():
-            features = model.encoder(images)
+            features, _ = model(images)
         output = classifier(features.detach())
         loss = criterion(output, labels)
 
@@ -78,6 +87,7 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
         losses.update(loss.item(), bsz)
         acc1, acc5 = accuracy(output, labels, topk=(1, 5))
         top1.update(acc1[0], bsz)
+        top5.update(acc5[0], bsz)
 
         # SGD
         optimizer.zero_grad()
@@ -119,7 +129,8 @@ def validate(val_loader, model, classifier, criterion, opt):
             bsz = labels.shape[0]
 
             # forward
-            output = classifier(model.encoder(images))
+            encoding, _ = model(images)
+            output = classifier(encoding)
             loss = criterion(output, labels)
 
             # update metric
@@ -151,23 +162,38 @@ def evaluate(val_loader, model, classifier, opt):
         for idx, (images, labels) in enumerate(val_loader):
             images = images.float().cuda()
             labels = labels.cuda()
-            output = classifier(model.encoder(images))
+            #output = classifier(model.encoder(images))
+            encoding, _ = model(images)
+            output = classifier(encoding)
+
             true_y.extend(labels.cpu())
             pred_y.extend(torch.argmax(output, dim=1).cpu())
         return classification_report(true_y, pred_y, zero_division=1)
 
 
-def predict(dataloader, model, laplace=False):
+# def predict(dataloader, model, laplace=False):
+#     py = []
+#     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#     with torch.no_grad():
+#         for x, _ in dataloader:
+            
+#             py.append(model(x.to(device)))
+            
+#         res = torch.cat(py).cpu().detach().numpy()
+
+#     return res
+
+def predict(dataloader, model):
     py = []
+    var = []
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     with torch.no_grad():
         for x, _ in dataloader:
-            print(x)
-            if laplace:
-                py.append(model(x.to(device)))
-            else:
-                # py.append(torch.softmax(model(x.to(device)), dim=-1))
-                py.append(model(x.to(device)))
+            pred, std = model(x.to(device))
+            py.append(pred)
+            var.append(std)
+            
         res = torch.cat(py).cpu().detach().numpy()
+        var = torch.cat(var).cpu().detach().numpy()
 
-    return res
+    return res, var

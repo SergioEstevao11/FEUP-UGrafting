@@ -1,12 +1,13 @@
 import torch
 import argparse
 import torch.distributions as dists
-from models.concatenate import MyEnsemble
+from models.concatenate import MyEnsemble, MyUQEnsemble
 import numpy as np
 from Dataloader.dataloader import data_loader
 from Train.linear_eval import set_model_linear, predict
 from utils.metrics import *
 from plotting.UQ_viz import *
+from utils.util import thresholding_mechanism
 
 
 def parse_option():
@@ -30,6 +31,7 @@ def parse_option():
 
     parser.add_argument('--ensemble', type=int, default=1,
                         help='number of ensemble models')
+    
     opt = parser.parse_args()
     return opt
 
@@ -50,9 +52,9 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
         for i in range(n):
             linear_model_path =model_dir
             simclr_path =classifier_dir
-            model, classifier, criterion = set_model_linear("resnet50", n_cls, simclr_path, nh=nh)
+            model, classifier, criterion = set_model_linear("resnet18", n_cls, simclr_path, nh=nh)
             classifier.load_state_dict(torch.load(linear_model_path))
-            linear_model = MyEnsemble(model.encoder, classifier).cuda().eval()
+            #linear_model = MyEnsemble(model, classifier).cuda().eval()
             probs_ensemble2_model.append(predict(test_loader, linear_model, laplace=False))
 
     else:
@@ -62,10 +64,24 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
             print(f"nh is {nh}")
             model, classifier, criterion = set_model_linear("resnet50", n_cls, simclr_path, nh=nh)
             classifier.load_state_dict(torch.load(linear_model_path))
-            linear_model = MyEnsemble(model.encoder, classifier).cuda().eval()
-            prediction = predict(test_loader, linear_model, laplace=False)
-            #print(f"prediction is {prediction.shape}")
+
+            #linear_model = MyEnsemble(model, classifier).cuda().eval()
+            linear_model = MyUQEnsemble(model, classifier).cuda().eval()
+
+
+            prediction, variation = predict(test_loader, linear_model)
+            print(f"prediction is {prediction.shape}")
+            print(f"variation is {variation.shape}")
+            
+            filtered_predictions, accepted_indices = thresholding_mechanism(prediction, variation, method='average')
+            print("Filtered predictions shape:", filtered_predictions.shape)
+            print("Indices of accepted predictions:", accepted_indices)
+            prediction = filtered_predictions
+            targets = targets[accepted_indices]
+
             probs_ensemble2_model.append(prediction)
+    print(variation[0])
+    print(len(variation))
     probs_ensemble2_model = np.array(probs_ensemble2_model)
     probs_ensemble2 = np.mean(probs_ensemble2_model, 0)
     acc_ensemble2 = (probs_ensemble2.argmax(-1) == targets).mean()
@@ -75,6 +91,8 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
     tace = TACELoss()
     ece = ECELoss()
     mce = MCELoss()
+    brier = BrierScore()
+    auc_roc = AUCROC()
     oe_res = oe.loss(output=probs_ensemble2, labels=targets, logits=True)
     sce_res = sce.loss(output=probs_ensemble2, labels=targets, logits=True)
     ace_res = ace.loss(output=probs_ensemble2, labels=targets, logits=True)
@@ -83,6 +101,14 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
     mce_res = mce.loss(output=probs_ensemble2, labels=targets, logits=True, n_bins=5)
     nll_ensemble2 = -dists.Categorical(torch.softmax(torch.tensor(probs_ensemble2), dim=-1)).log_prob(
         torch.tensor(targets)).mean()
+    
+
+    # aditional metrics
+    # brier_score_res = brier.score(targets, probs_ensemble2)
+    # log_loss_res = log_loss(targets, probs_ensemble2)
+    # auc_roc_res = roc_auc_score(targets, probs_ensemble2, multi_class='ovr')
+    # auc_pr_res = average_precision_score(targets, probs_ensemble2, average='macro')
+    # f1_res = f1_score(targets, np.argmax(probs_ensemble2, axis=1), average='macro')
     
     plot_precision_recall_curve_multiclass(targets, probs_ensemble2, n_cls) 
     plot_average_precision_recall_curve(targets, probs_ensemble2, n_cls)

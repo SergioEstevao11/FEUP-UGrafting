@@ -157,22 +157,69 @@ class UGraft(nn.Module):
         features = torch.cat([feat1.unsqueeze(1), feat2.unsqueeze(1)], dim=1)
         features_std = torch.cat([feat1_std.unsqueeze(1), feat2_std.unsqueeze(1)], dim=1)
 
-        # 10x encodings
-
-        # 
-
-
         return features, features_std
+    
+
+    def forward(self, x):
+        enconding = self.encoder(x)
+        res = []
+
+        if self.head_type == 'mc-dropout':
+            for _ in range(self.n_heads):
+                x_dropout = self.apply_mc_dropout(enconding)
+                res.append(F.normalize(x_dropout, dim=1))
+
+        elif self.head_type == 'mlp':
+            for proj in self.proj:
+                res.append(F.normalize(proj(enconding), dim=1))
+        
+        elif self.head_type == 'direct-modelling':
+            res_mean = []
+            res_variance = []
+
+            enconding = self.common_path(enconding)
+
+            #for i in range(self.n_heads):
+                # Project to mean and variance
+            mean = self.proj_linear(enconding)
+            variance = self.proj_variance(enconding) + 1e-6  # Ensure non-zero variance for stability
+            
+            
+            # Normalize the means for stability in contrastive learning
+            res_mean.append(F.normalize(mean, dim=1))
+            
+            res_variance.append(variance)
+
+            features_mean = torch.mean(torch.stack(res_mean), dim=0)
+            features_variance = torch.mean(torch.stack(res_variance), dim=0)
+
+            return features_mean, features_variance
+
+                
+        else:  # for linear
+            res = [F.normalize(self.proj(enconding), dim=1)] * self.n_heads
+        
+        
+        # Compute the mean and standard deviation of the representations
+        features = torch.mean(torch.stack(res), dim=0)
+        features_variance = torch.sqrt(torch.var(torch.stack(res), dim=0) + 0.0001)
+
+        return features, features_variance
+            
 
 
 class LinearClassifier(nn.Module):
     """Linear classifier"""
 
-    def __init__(self, name='resnet50', num_classes=10):
+    # def __init__(self, name='resnet50', num_classes=10):
+    #     super(LinearClassifier, self).__init__()
+
+    #     _, dim_in = model_dict[name]
+    #     self.fc = nn.Linear(dim_in, num_classes)
+    def __init__(self, embedding_dim, num_classes=10):
         super(LinearClassifier, self).__init__()
 
-        _, dim_in = model_dict[name]
-        self.fc = nn.Linear(dim_in, num_classes)
+        self.fc = nn.Linear(embedding_dim, num_classes)
 
     def forward(self, features):
         return self.fc(features)
