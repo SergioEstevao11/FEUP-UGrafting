@@ -193,7 +193,7 @@ def main():
 
 
         
-        #linegraph_minmax_area(std_data, opt.epochs)
+        linegraph_minmax_area(std_data, opt.epochs)
         
         # print(std_data)
         # with open(r'./std_mean.txt', 'w') as fp:
