@@ -78,6 +78,13 @@ def parse_option():
                         help='uncertainty_penalty_weight')
     parser.add_argument('--lamda2', type=float, default=0.1,
                         help='uncertainty_threshold')
+    
+    parser.add_argument('--ugraft_probing', action='store_true',
+                        help='true if linear probing was done on top of the ugraft module')
+    parser.add_argument('--backbone', type=str,
+                        help='backbone model (vit, resnet50, etc.)')
+    parser.add_argument('--uq_method', type=str,
+                        help='uq method (mlp, mc-dropout, direct-modeling)')
 
     opt = parser.parse_args()
 
@@ -133,8 +140,8 @@ def main():
         best_epoch = 0
         torch.manual_seed(i)
         torch.cuda.manual_seed(i)
-        model, classifier, criterion = set_model_linear(model_name=opt.model, number_cls=num_classes, path=opt.ckpt,
-                                                        nh=opt.nh)
+        model, classifier, criterion = set_model_linear(number_cls=num_classes, path=opt.ckpt,
+                                                        nh=opt.nh, opt=opt)
         for param in model.parameters():
             param.requires_grad = False
         # build optimizer

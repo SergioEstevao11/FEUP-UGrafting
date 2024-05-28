@@ -17,7 +17,7 @@ class MyDataParallel(torch.nn.DataParallel):
             return getattr(self.module, name)
 
 
-def set_model_linear(model_name, number_cls, path, nh=5, opt=None):
+def set_model_linear(number_cls, path, nh=5, opt=None):
     
     model_name = opt.backbone
     uq_method = opt.uq_method
@@ -25,7 +25,7 @@ def set_model_linear(model_name, number_cls, path, nh=5, opt=None):
     print(f"==============UQ Method: {uq_method}")
 
 
-    model = UGraft(name=opt.model_name, head=uq_method, n_heads=nh)
+    model = UGraft(name=model_name, head=uq_method, n_heads=nh)
     criterion = torch.nn.CrossEntropyLoss()
     print(f"==============Number of classes: {number_cls}")
 

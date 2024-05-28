@@ -60,7 +60,7 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
         for i in range(n):
             linear_model_path =model_dir
             simclr_path =classifier_dir
-            model, classifier, criterion = set_model_linear(n_cls, simclr_path, nh=nh, opt=opt)
+            model, classifier, criterion = set_model_linear(number_cls=n_cls, path=simclr_path, nh=nh, opt=opt)
             classifier.load_state_dict(torch.load(linear_model_path))
             #linear_model = MyEnsemble(model, classifier).cuda().eval()
             probs_ensemble2_model.append(predict(test_loader, linear_model, laplace=False))
@@ -70,7 +70,7 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
             linear_model_path = model_dir
             simclr_path = classifier_dir
             print(f"nh is {nh}")
-            model, classifier, criterion = set_model_linear(n_cls, simclr_path, nh=nh, opt=opt)
+            model, classifier, criterion = set_model_linear(number_cls=n_cls, path=simclr_path, nh=nh, opt=opt)
             classifier.load_state_dict(torch.load(linear_model_path))
 
             linear_model = MyUQEnsemble(model, classifier, opt.ugraft_probing).cuda().eval()
