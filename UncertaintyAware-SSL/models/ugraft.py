@@ -34,7 +34,7 @@ def MC_dropout(act_vec, p=0.5, mask=True):
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='resnet50', head='mlp', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
+    def __init__(self, name='resnet50', head='mc-dropout', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
         print(f"Using backbone: {name}", 
               f" with head: {head}")
@@ -93,8 +93,18 @@ class UGraft(nn.Module):
         x = self.act(self.fc2(x))
         x = self.fc3(x)  # No dropout after the last layer
         return x
+    
 
-    def forward(self, x1, x2, sample=True):
+    def forward(self, *inputs, sample=True):
+        if len(inputs) == 1:
+            return self.forward_single(inputs[0])
+        elif len(inputs) == 2:
+            return self.forward_dual(inputs[0], inputs[1])
+        else:
+            raise ValueError("Invalid number of inputs for forward pass. Expected 1 or 2 inputs.")
+
+
+    def forward_dual(self, x1, x2):
         f1, f2 = self.encoder(x1), self.encoder(x2)
         res1, res2 = [], []
 
@@ -160,7 +170,7 @@ class UGraft(nn.Module):
         return features, features_std
     
 
-    def forward(self, x):
+    def forward_single(self, x):
         enconding = self.encoder(x)
         res = []
 

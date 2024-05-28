@@ -2,7 +2,7 @@ import sys
 import time
 import torch
 from utils.util import AverageMeter, accuracy, warmup_learning_rate
-from models.ugraft import UGraft, LinearClassifier
+from models.ugraft import UGraft, LinearClassifier, model_dict
 import torch.backends.cudnn as cudnn
 from torch import nn
 from sklearn.metrics import classification_report
@@ -17,19 +17,27 @@ class MyDataParallel(torch.nn.DataParallel):
             return getattr(self.module, name)
 
 
-def set_model_linear(model_name, number_cls, path, nh=5):
-    print(f"==============Model: {model_name}")
+def set_model_linear(model_name, number_cls, path, nh=5, opt=None):
     
-    model = UGraft(name=model_name, n_heads=nh)
+    model_name = opt.backbone
+    uq_method = opt.uq_method
+    print(f"==============Model: {model_name}")
+    print(f"==============UQ Method: {uq_method}")
+
+
+    model = UGraft(name=opt.model_name, head=uq_method, n_heads=nh)
     criterion = torch.nn.CrossEntropyLoss()
     print(f"==============Number of classes: {number_cls}")
 
     # give me the model's last dim dimensions
     
 
-
-    # classifier = LinearClassifier(name=model, num_classes=number_cls)
-    classifier = LinearClassifier(embedding_dim=128, num_classes=number_cls)
+    if opt.ugraft_probing:
+        classifier = LinearClassifier(embedding_dim=128, num_classes=number_cls)
+    else:
+        dim = model_dict[model_name][1]
+        print("DIM", dim)
+        classifier = LinearClassifier(embedding_dim=dim, num_classes=number_cls)
 
 
     ckpt = torch.load(path)

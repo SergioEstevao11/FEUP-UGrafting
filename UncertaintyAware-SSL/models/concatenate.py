@@ -13,12 +13,21 @@ class MyEnsemble(nn.Module):
         return x
     
 class MyUQEnsemble(nn.Module):
-    def __init__(self, modelA,classifier):
+    def __init__(self, modelA, classifier, ugraft_probing=False):
         super(MyUQEnsemble, self).__init__()
+        self.ugraft_probing = ugraft_probing
+
         self.modelA = modelA
         self.classifier = classifier
 
     def forward(self, x):
-        x1, variance = self.modelA(x)
+
+        if self.ugraft_probing:
+            x1, variance = self.modelA(x)
+
+        else:
+            x1 = self.modelA.encoder(x)
+            _, variance = self.modelA(x)
+
         x = self.classifier(x1)
         return x, variance

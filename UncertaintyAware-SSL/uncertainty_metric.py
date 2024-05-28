@@ -32,11 +32,19 @@ def parse_option():
     parser.add_argument('--ensemble', type=int, default=1,
                         help='number of ensemble models')
     
+    parser.add_argument('--ugraft_probing', action='store_true',
+                        help='true if linear probing was done on top of the ugraft module')
+
+    parser.add_argument('--backbone', type=str,
+                        help='backbone model (vit, resnet50, etc.)')
+    
+    parser.add_argument('--uq_method', type=str,
+                        help='uq method (mlp, mc-dropout, direct-modeling)')
     opt = parser.parse_args()
     return opt
 
 
-def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", classifier_dir="."):
+def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", classifier_dir=".", opt=None):
     probs_ensemble2_model = []
     # print all the hyperparameters
     print("=====Hyperparameters=====")
@@ -52,7 +60,7 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
         for i in range(n):
             linear_model_path =model_dir
             simclr_path =classifier_dir
-            model, classifier, criterion = set_model_linear("resnet18", n_cls, simclr_path, nh=nh)
+            model, classifier, criterion = set_model_linear(n_cls, simclr_path, nh=nh, opt=opt)
             classifier.load_state_dict(torch.load(linear_model_path))
             #linear_model = MyEnsemble(model, classifier).cuda().eval()
             probs_ensemble2_model.append(predict(test_loader, linear_model, laplace=False))
@@ -62,22 +70,24 @@ def ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", clas
             linear_model_path = model_dir
             simclr_path = classifier_dir
             print(f"nh is {nh}")
-            model, classifier, criterion = set_model_linear("resnet50", n_cls, simclr_path, nh=nh)
+            model, classifier, criterion = set_model_linear(n_cls, simclr_path, nh=nh, opt=opt)
             classifier.load_state_dict(torch.load(linear_model_path))
 
-            #linear_model = MyEnsemble(model, classifier).cuda().eval()
-            linear_model = MyUQEnsemble(model, classifier).cuda().eval()
+            linear_model = MyUQEnsemble(model, classifier, opt.ugraft_probing).cuda().eval()
 
 
             prediction, variation = predict(test_loader, linear_model)
             print(f"prediction is {prediction.shape}")
             print(f"variation is {variation.shape}")
             
-            filtered_predictions, accepted_indices = thresholding_mechanism(prediction, variation, method='average')
+            accepted_indices, rejected_indices = thresholding_mechanism(prediction, variation, method='average')
+
+            filtered_predictions = prediction[accepted_indices]
             print("Filtered predictions shape:", filtered_predictions.shape)
             print("Indices of accepted predictions:", accepted_indices)
             prediction = filtered_predictions
             targets = targets[accepted_indices]
+
 
             probs_ensemble2_model.append(prediction)
     print(variation[0])
@@ -148,7 +158,7 @@ def train():
     train_loader, val_loader, test_loader, targets = data_loader(opt.dataset, batch_size=128, semi=smi,
                                                                  semi_percent=opt.semi_percent)
     #ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", classifier_dir=".")
-    ensemble(opt.ensemble, opt.nh, targets, n_cls, test_loader, smi, opt.model_path,opt.classifier_path)
+    ensemble(opt.ensemble, opt.nh, targets, n_cls, test_loader, smi, opt.model_path,opt.classifier_path, opt)
 
 
 if __name__ == "__main__":

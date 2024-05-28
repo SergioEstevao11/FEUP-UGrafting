@@ -193,9 +193,8 @@ def main():
 
 
         
-        linegraph_minmax_area(std_data, opt.epochs)
-        torch.save(UQ_l, UQ_l_file)
-        torch.save(feats, feats_l_file)
+        #linegraph_minmax_area(std_data, opt.epochs)
+        
         # print(std_data)
         # with open(r'./std_mean.txt', 'w') as fp:
         #     for min_val, max_val, mean_val in std_data:

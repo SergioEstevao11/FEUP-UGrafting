@@ -118,10 +118,16 @@ def thresholding_mechanism(predictions, variances, method='top_percent'):
     - filtered_predictions: np.array, filtered predictions based on the chosen threshold
     - accepted_indices: np.array, indices of the accepted predictions
     """
+
+
+
+    
+
+
     if method == 'average':
         threshold = np.mean(variances)
     elif method == 'top_percent':
-        threshold = np.percentile(variances, 70)
+        threshold = np.percentile(variances, 50)
     else:
         raise ValueError("Method should be either 'average' or 'top_10_percent'")
     
@@ -130,8 +136,7 @@ def thresholding_mechanism(predictions, variances, method='top_percent'):
     
     # Get the indices of the predictions that are below the threshold
     accepted_indices = np.where(mean_variances <= threshold)[0]
+    rejected_indices = np.where(mean_variances > threshold)[0]
     
-    # Filter predictions based on the accepted indices
-    filtered_predictions = predictions[accepted_indices]
     
-    return filtered_predictions, accepted_indices
+    return accepted_indices, rejected_indices
