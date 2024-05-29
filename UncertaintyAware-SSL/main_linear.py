@@ -14,12 +14,6 @@ from utils.util import set_optimizer
 from Train.linear_eval import set_model_linear, train, evaluate, validate
 from torch.utils.tensorboard import SummaryWriter
 
-# try:
-#     import apex
-#     from apex import amp, optimizers
-# except ImportError:
-#     pass
-
 
 def parse_option():
     parser = argparse.ArgumentParser('argument for training')

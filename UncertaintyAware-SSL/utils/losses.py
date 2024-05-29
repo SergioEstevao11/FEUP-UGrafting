@@ -92,9 +92,11 @@ class UALoss(nn.Module):
         loss = loss.view(anchor_count, batch_size).mean()
 
         if self.lamda1 > 0:
-            #total_loss = std_loss1 * self.lamda1 + loss - std_loss2*0.01
-            total_loss = std_loss2 * self.lamda1 + loss
+            total_loss = std_loss1 * self.lamda1 + loss
+            #total_loss = std_loss2 * self.lamda1 + loss
         else:
             total_loss = loss
+
+        #print(features_std)
 
         return total_loss, std_loss1, std_loss2

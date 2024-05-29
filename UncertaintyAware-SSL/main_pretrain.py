@@ -15,11 +15,6 @@ from plotting.UQ_viz import visualize_with_tsne, visualize_with_3d_histogram, vi
 from utils.util import adjust_learning_rate
 from utils.util import set_optimizer
 
-try:
-    import apex
-    from apex import amp, optimizers
-except ImportError:
-    pass
 
 
 def parse_option():

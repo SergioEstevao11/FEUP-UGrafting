@@ -88,8 +88,6 @@ class UGraft(nn.Module):
     def apply_mc_dropout(self, x):
         # Apply MC-Dropout pattern using defined layers
         x = MC_dropout(x, p=self.pdrop, mask=True)
-        x = self.act(self.fc1(x))
-        x = MC_dropout(x, p=self.pdrop, mask=True)
         x = self.act(self.fc2(x))
         x = self.fc3(x)  # No dropout after the last layer
         return x
