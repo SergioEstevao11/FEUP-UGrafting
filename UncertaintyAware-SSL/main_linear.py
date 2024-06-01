@@ -201,17 +201,23 @@ def main():
             
 
         else:
-            opt.classifier_path = os.path.join(
-                opt.classifier_path,
-                '{}_{}_linear_{}_epoch{}_{}heads_lamda1{}_lamda2{}_withUQ.pth'.format(
-                            opt.model,
-                            model.head_type,
-                           opt.dataset,
-                           i,
-                           opt.epochs,
-                           opt.nh,
-                           opt.lamda1,
-                           opt.lamda2))
+            file_name = '{}_{}_linear_{}_epoch{}_{}heads_lamda1{}_lamda2{}'.format(
+                opt.model,
+                model.head_type,
+                opt.dataset,
+                i,
+                opt.epochs,
+                opt.nh,
+                opt.lamda1,
+                opt.lamda2
+            )
+    
+        if opt.ugraft_probing:
+            file_name += '_withUQ'
+            
+        file_name += '.pth'
+        
+        opt.classifier_path = os.path.join(opt.classifier_path, file_name)
             
         print("acc_l", acc_l)
         print("val_acc_l", val_acc_l)

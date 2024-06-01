@@ -31,10 +31,18 @@ class LinearBatchNorm(nn.Module):
 def MC_dropout(act_vec, p=0.5, mask=True):
     return F.dropout(act_vec, p=p, training=mask, inplace=False)
 
+class TemperatureScaling(nn.Module):
+    def __init__(self):
+        super(TemperatureScaling, self).__init__()
+        self.temperature = nn.Parameter(torch.ones(1) * 1.0)
+
+    def forward(self, logits):
+        return logits / self.temperature
+
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='resnet50', head='mc-dropout', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
+    def __init__(self, name='resnet50', head='direct-modelling', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
         print(f"Using backbone: {name}", 
               f" with head: {head}")
@@ -74,12 +82,25 @@ class UGraft(nn.Module):
                     nn.Softplus()  # to ensure variance is positive
             ) 
 
+            # nn.init.kaiming_uniform_(self.proj_variance[0].weight, a=0, mode='fan_in', nonlinearity='relu')
+            # nn.init.constant_(self.proj_variance[0].bias, 0)
+            
+            # # Add a small positive constant to the initialized weights
+            # with torch.no_grad():
+            #     self.proj_variance[0].weight += 1e-6
+
+            nn.init.constant_(self.proj_variance[0].weight, 0.1)
+            nn.init.constant_(self.proj_variance[0].bias, 0.1)
+
         elif head == 'mc-dropout':
             self.fc1 = nn.Linear(dim_in, dim_in)
             self.fc2 = nn.Linear(dim_in, dim_in)
             self.fc3 = nn.Linear(dim_in, feat_dim)
             self.act = nn.ReLU(inplace=False)
 
+        elif head == 'temp-scaling':
+            self.temperature_scaling = TemperatureScaling()
+            self.proj = nn.Linear(dim_in, feat_dim)
 
         else:
             raise NotImplementedError(
@@ -150,6 +171,16 @@ class UGraft(nn.Module):
 
             return features_mean, features_variance
 
+        elif self.head_type == 'temp-scaling':
+            logits1 = self.proj(f1)
+            logits2 = self.proj(f2)
+            scaled_logits1 = self.temperature_scaling(logits1)
+            scaled_logits2 = self.temperature_scaling(logits2)
+            features = torch.cat([scaled_logits1.unsqueeze(1), scaled_logits2.unsqueeze(1)], dim=1)
+            features_std = torch.sqrt(torch.var(features, dim=1) + 0.0001)
+            features_mean = torch.mean(features, dim=1)
+            return features_mean, features_std
+
                 
         else:  # for linear
             res1 = [F.normalize(self.proj(f1), dim=1)] * self.n_heads
@@ -202,8 +233,12 @@ class UGraft(nn.Module):
             features_variance = torch.mean(torch.stack(res_variance), dim=0)
 
             return features_mean, features_variance
+        
+        elif self.head_type == 'temp-scaling':
+            logits = self.proj(enconding)
+            scaled_logits = self.temperature_scaling(logits)
+            return F.normalize(scaled_logits, dim=1)
 
-                
         else:  # for linear
             res = [F.normalize(self.proj(enconding), dim=1)] * self.n_heads
         
