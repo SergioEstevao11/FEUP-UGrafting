@@ -31,7 +31,7 @@ def parse_option():
     parser.add_argument('--ensemble', type=int, default=1,
                         help='number of ensemble')
     # optimization
-    parser.add_argument('--learning_rate', type=float, default=0.01,
+    parser.add_argument('--learning_rate', type=float, default=0.0001,
                         help='learning rate')
     parser.add_argument('--lr_decay_epochs', type=str, default='700,800,900',
                         help='where to decay lr, can be a list')

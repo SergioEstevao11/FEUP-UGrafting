@@ -42,7 +42,7 @@ class TemperatureScaling(nn.Module):
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='resnet50', head='direct-modelling', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
+    def __init__(self, name='resnet50', head='linear', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
         print(f"Using backbone: {name}", 
               f" with head: {head}")
