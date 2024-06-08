@@ -7,7 +7,7 @@ import torch
 import copy
 import os
 import numpy as np
-from Dataloader.dataloader import data_loader
+from Dataloader.dataloader import linear_data_loader
 from utils.util import adjust_learning_rate
 from utils.util import set_optimizer
 
@@ -79,6 +79,8 @@ def parse_option():
                         help='backbone model (vit, resnet50, etc.)')
     parser.add_argument('--uq_method', type=str,
                         help='uq method (mlp, mc-dropout, direct-modeling)')
+    parser.add_argument('--prev_epochs', type=str, default="?",
+                        help='number of epochs the encoder was trained on')
 
     opt = parser.parse_args()
 
@@ -124,7 +126,7 @@ def main():
 
     writer = SummaryWriter(log_dir=opt.tb_path)
     # build data loader
-    train_loader, val_loader, test_loader, targets = data_loader(dataset=opt.dataset, batch_size=opt.batch_size,
+    train_loader, val_loader, test_loader, targets = linear_data_loader(dataset=opt.dataset, batch_size=opt.batch_size,
                                                            semi=opt.semi, semi_percent=opt.semi_percent)
     num_classes = np.unique(targets).shape[0]
     
@@ -148,7 +150,7 @@ def main():
         acc_l = []
         val_acc_l = []
         val_loss_l = []
-
+        print("EPOCHS: ", opt.epochs)
         for epoch in range(1, opt.epochs + 1):
             adjust_learning_rate(opt, optimizer, epoch)
 
@@ -201,9 +203,10 @@ def main():
             
 
         else:
-            file_name = '{}_{}_linear_{}_epoch{}_{}heads_lamda1{}_lamda2{}'.format(
+            file_name = '{}_{}_prevepochs{}_linearEval_{}_epoch{}_{}heads_lamda1{}_lamda2{}'.format(
                 opt.model,
                 model.head_type,
+                opt.prev_epochs,
                 opt.dataset,
                 i,
                 opt.epochs,

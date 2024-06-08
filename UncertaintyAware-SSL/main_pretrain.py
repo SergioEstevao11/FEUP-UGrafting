@@ -77,7 +77,9 @@ def parse_option():
     # set the path according to the environment
     if opt.data_folder is None:
         opt.data_folder = './DATA'
-    opt.tb_path = os.path.join(opt.log, '{}'.format(opt.dataset))
+    opt.tb_path = os.path.join(opt.log, '{}_{}_{}_{}_epochs{}_{}heads_lamda1{}_lamda2{}.pth'.format(opt.model, model.head_type, opt.dataset, i, epoch, opt.nh,
+                                                                                opt.lamda1,
+                                                                                opt.lamda2))
     print(f"THIS: {opt.saved_model}")
     opt.save_folder = os.path.join(opt.saved_model, '{}_experiments'.format(opt.dataset))
     if not os.path.isdir(opt.save_folder):
@@ -112,7 +114,9 @@ def main():
 
         # build optimizer
         optimizer = set_optimizer(opt, model)
-
+        opt.tb_path = os.path.join(opt.log, '{}_{}_{}_{}_epochs{}_{}heads_lamda1{}_lamda2{}.pth'.format(opt.model, model.head_type, opt.dataset, i, epoch, opt.nh,
+                                                                                opt.lamda1,
+                                                                                opt.lamda2))
         # tensorboard
         logger = tb_logger.Logger(logdir=opt.tb_path, flush_secs=2)
 
@@ -188,7 +192,7 @@ def main():
 
 
         
-        linegraph_minmax_area(std_data, opt.epochs)
+        #linegraph_minmax_area(std_data, opt.epochs)
         
         # print(std_data)
         # with open(r'./std_mean.txt', 'w') as fp:

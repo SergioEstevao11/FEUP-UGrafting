@@ -42,7 +42,7 @@ class TemperatureScaling(nn.Module):
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='resnet50', head='linear', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
+    def __init__(self, name='resnet50', head='mc-dropout', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
         print(f"Using backbone: {name}", 
               f" with head: {head}")
@@ -56,7 +56,11 @@ class UGraft(nn.Module):
         self.pdrop = 0.5
 
         if head == 'linear':
-            self.proj = nn.Linear(dim_in, feat_dim)
+            self.proj = nn.Sequential(
+                    nn.Linear(dim_in, dim_in),
+                    nn.ReLU(inplace=True),
+                    nn.Linear(dim_in, feat_dim)
+                )
 
         elif head == 'mlp':
             self.proj = nn.ModuleList()
