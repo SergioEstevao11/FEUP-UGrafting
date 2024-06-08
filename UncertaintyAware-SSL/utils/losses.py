@@ -83,15 +83,10 @@ class UALoss(nn.Module):
         
         std_loss2 = torch.sum(features_std) / (2 * self.batch_size)
 
-        #lamda1 = 1
-        #lamda2 = 0.1
-
 
         # print(std_loss)
         # nt xnet loss
         loss = loss.view(anchor_count, batch_size).mean()
-
-       
         if self.lamda1 > 0:
             total_loss = std_loss1 * self.lamda1 + loss
             #total_loss = std_loss2 * self.lamda1 + loss

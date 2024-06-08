@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from models.backbones.resnet import *
 from models.backbones.vit import *
 
+
 model_dict = {
     'resnet18': [lambda image_size, channels: resnet18(in_channel=channels), 512],
     'resnet34': [lambda image_size, channels: resnet34(in_channel=channels), 512],
@@ -42,7 +43,7 @@ class TemperatureScaling(nn.Module):
 class UGraft(nn.Module):
     """backbone + projection head"""
 
-    def __init__(self, name='resnet50', head='mc-dropout', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
+    def __init__(self, name='resnet50', head='mlp', feat_dim=128, n_heads=5, image_shape=(3, 32, 32)):
         super(UGraft, self).__init__()
         print(f"Using backbone: {name}", 
               f" with head: {head}")
