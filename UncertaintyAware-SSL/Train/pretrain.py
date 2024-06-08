@@ -6,6 +6,9 @@ from models.ugraft import UGraft
 from utils.losses import UALoss
 import torch.backends.cudnn as cudnn
 from torch import nn
+from torch.cuda.amp import GradScaler, autocast
+
+scaler = GradScaler()
 
 def train(train_loader, model, criterion, optimizer, epoch, opt):
     """one epoch training"""
@@ -28,17 +31,19 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         # warm-up learning rate
         warmup_learning_rate(opt, epoch, idx, len(train_loader), optimizer)
         # compute features and features std
-        features, features_std = model(image1, image2)
-        # compute loss
-        loss, std_loss, std_loss2 = criterion(features, features_std, epoch)
+        with autocast():
+            features, features_std = model(image1, image2)
+            # compute loss
+            loss, std_loss, std_loss2 = criterion(features, features_std, epoch)
         # update metric
         losses.update(loss.item(), bsz)
         stdlosses.update(std_loss.item(), bsz)
         stdlosses2.update(std_loss2.item(), bsz)
         # SGD
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
 
         # measure elapsed time
         batch_time.update(time.time() - end)

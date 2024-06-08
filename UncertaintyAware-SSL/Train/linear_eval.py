@@ -17,7 +17,7 @@ class MyDataParallel(torch.nn.DataParallel):
             return getattr(self.module, name)
 
 
-def set_model_linear(number_cls, path, nh=5, opt=None):
+def set_model_linear(number_cls, path, nh=5, opt=None, image_size=None):
     
     model_name = opt.backbone
     uq_method = opt.uq_method
@@ -25,7 +25,7 @@ def set_model_linear(number_cls, path, nh=5, opt=None):
     print(f"==============UQ Method: {uq_method}")
 
 
-    model = UGraft(name=model_name, head=uq_method, n_heads=nh)
+    model = UGraft(name=model_name, head=uq_method, n_heads=nh, image_shape=image_size)
     criterion = torch.nn.CrossEntropyLoss()
     print(f"==============Number of classes: {number_cls}")
 
@@ -87,7 +87,10 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
 
         # compute loss
         with torch.no_grad():
-            features, _ = model(images)
+            if opt.ugraft_probing:
+                features, _ = model(images)
+            else:
+                features = model.encoder(images)
         output = classifier(features.detach())
         loss = criterion(output, labels)
 
@@ -137,8 +140,11 @@ def validate(val_loader, model, classifier, criterion, opt):
             bsz = labels.shape[0]
 
             # forward
-            encoding, _ = model(images)
-            output = classifier(encoding)
+            if opt.ugraft_probing:
+                features, _ = model(images)
+            else:
+                features = model.encoder(images)
+            output = classifier(features)
             loss = criterion(output, labels)
 
             # update metric
@@ -171,8 +177,11 @@ def evaluate(val_loader, model, classifier, opt):
             images = images.float().cuda()
             labels = labels.cuda()
             #output = classifier(model.encoder(images))
-            encoding, _ = model(images)
-            output = classifier(encoding)
+            if opt.ugraft_probing:
+                features, _ = model(images)
+            else:
+                features = model.encoder(images)
+            output = classifier(features)
 
             true_y.extend(labels.cpu())
             pred_y.extend(torch.argmax(output, dim=1).cpu())

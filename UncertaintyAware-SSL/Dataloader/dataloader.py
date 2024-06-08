@@ -1,9 +1,10 @@
+
+
 from torch.utils.data import DataLoader, random_split
 import torchvision.transforms as transforms
 from torchvision import datasets
 import torch
-from utils.util import TwoCropTransform
-import utils
+from utils.util import TwoCropTransform, GaussianBlur, Solarization
 from PIL import Image
 
 # search tiny imagenet C 
@@ -19,7 +20,7 @@ class DataAugmentationDINO(object):
             ),
             transforms.RandomGrayscale(p=0.2),
         ])
-        
+
         normalize = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
@@ -28,15 +29,15 @@ class DataAugmentationDINO(object):
         self.global_transfo1 = transforms.Compose([
             transforms.RandomResizedCrop(image_size, scale=global_crops_scale, interpolation=Image.BICUBIC),
             flip_and_color_jitter,
-            transforms.GaussianBlur(3, 1.0),
+            GaussianBlur(1.0),
             normalize,
         ])
         # second global crop
         self.global_transfo2 = transforms.Compose([
             transforms.RandomResizedCrop(image_size, scale=global_crops_scale, interpolation=Image.BICUBIC),
             flip_and_color_jitter,
-            transforms.GaussianBlur(3, sigma=0.1),
-            #transforms.Solarization(0.2),
+            GaussianBlur(0.1),
+            Solarization(0.2),
             normalize,
         ])
         # transformation for the local small crops
@@ -44,7 +45,7 @@ class DataAugmentationDINO(object):
         self.local_transfo = transforms.Compose([
             transforms.RandomResizedCrop(int(96/(244/image_size)), scale=local_crops_scale, interpolation=Image.BICUBIC),
             flip_and_color_jitter,
-            transforms.GaussianBlur(3, 0.5),
+            GaussianBlur(p=0.5),
             normalize,
         ])
 
@@ -57,7 +58,9 @@ class DataAugmentationDINO(object):
         return crops[0], crops[1]
     
 
-def data_loader(dataset="cifar10", batch_size=512, semi=False, semi_percent=10, num_cores=12):
+def linear_data_loader(dataset="cifar10", batch_size=512, semi=False, semi_percent=10, num_cores=12):
+
+
     if dataset == 'cifar10':
         mean = (0.4914, 0.4822, 0.4465)
         std = (0.2023, 0.1994, 0.2010)
@@ -67,10 +70,15 @@ def data_loader(dataset="cifar10", batch_size=512, semi=False, semi_percent=10, 
     elif dataset == "svhn":
         mean = (0.4376821, 0.4437697, 0.47280442)
         std = (0.19803012, 0.20101562, 0.19703614)
+    elif dataset == "imagenet":
+        mean = (0.485, 0.456, 0.406)
+        std = (0.229, 0.224, 0.225)
 
+    crop_size = 64
     normalize = transforms.Normalize(mean=mean, std=std)
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(size=32, scale=(0.2, 1.)),
+        transforms.Resize((64, 64)),
+        transforms.RandomResizedCrop(size=crop_size, scale=(0.2, 1.)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         normalize,
@@ -95,10 +103,27 @@ def data_loader(dataset="cifar10", batch_size=512, semi=False, semi_percent=10, 
         test_dataset = datasets.SVHN(
             root='../../DATA2/', split="test", download=True, transform=val_transform
         )
-    elif dataset == "tinyimagenet":
-        pass
-        # train_dataset = datasets.ImageFolder(root='../../DATA2/tiny-imagenet-200/train', transform=DataAugmentationDINO)
+    elif dataset == "imagenet":
+        crop_size = 64
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(size=crop_size, scale=(0.2, 1.)),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
+        val_transform = transforms.Compose([
+            transforms.Resize((crop_size, crop_size)),
+            transforms.ToTensor(),
+            normalize,
+        ])
+
+
+        # train_dataset = datasets.ImageFolder(root='../../DATA2/tiny-imagenet-200/train', transform=data_transform)
         # test_dataset = datasets.ImageFolder(root='../../DATA2/tiny-imagenet-200/val', transform=val_transform)
+        train_dataset = datasets.ImageNet(root='../../DATA2/imagenet/', split="train", transform=train_transform)
+        test_dataset = datasets.ImageNet(root='../../DATA2/imagenet/', split="val", transform=val_transform)
+    
+
     if semi:
         per = semi_percent / 100
         x = int(per * len(train_dataset))
@@ -128,7 +153,8 @@ def data_loader(dataset="cifar10", batch_size=512, semi=False, semi_percent=10, 
                              drop_last=False)
 
     targets = torch.cat([y for x, y in test_loader], dim=0).numpy()
-    return train_loader, val_loader, test_loader, targets
+    image_size = (3, crop_size, crop_size)
+    return train_loader, val_loader, test_loader, targets, image_size
 
 
 def set_loader_simclr(dataset, batch_size, num_workers, data_dir='../../DATA2/', size_randomcrop=32):
@@ -193,7 +219,7 @@ def dataloader_UQ(dataset, batch_size, num_workers, data_dir='../../DATA2/', siz
     elif dataset == "svhn":
         mean = (0.4376821, 0.4437697, 0.47280442)
         std = (0.19803012, 0.20101562, 0.19703614)
-    elif dataset == "imagenet":
+    elif dataset == "imagenet" or dataset == 'stl10':
         mean = (0.4802, 0.4481, 0.3975) #dummy
         std = (0.2770, 0.2691, 0.2821) #dummy
     else:
@@ -247,10 +273,39 @@ def dataloader_UQ(dataset, batch_size, num_workers, data_dir='../../DATA2/', siz
             local_crops_number=6
         )
 
+        val_transform = val_transform = transforms.Compose([
+            transforms.RandomResizedCrop(crop_size, scale=(0.4, 1.0), interpolation=Image.BICUBIC),
+            transforms.ToTensor(),
+            normalize,
+        ])
+
+
         # train_dataset = datasets.ImageFolder(root='../../DATA2/tiny-imagenet-200/train', transform=data_transform)
         # test_dataset = datasets.ImageFolder(root='../../DATA2/tiny-imagenet-200/val', transform=val_transform)
-        train_dataset = datasets.ImageNet(root='../../', split="train", transform=data_transform)
-        test_dataset = datasets.ImageNet(root='../../', split="val", transform=TwoCropTransform(val_transform))
+        train_dataset = datasets.ImageNet(root='../../DATA2/imagenet/', split="train", transform=data_transform)
+        test_dataset = datasets.ImageNet(root='../../DATA2/imagenet/', split="val", transform=TwoCropTransform(val_transform))
+
+    elif dataset == "stl10":
+        data_transform = transforms.Compose(
+            [
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomResizedCrop(size=96),
+                transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)], p=0.8),
+                transforms.RandomGrayscale(p=0.2),
+                transforms.GaussianBlur(kernel_size=9),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5,), (0.5,)),
+            ]) 
+        val_transform = transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ]) 
+
+        train_dataset = datasets.STL10(root='../../DATA2/stl10/data/',
+                                        split='unlabeled',
+                                          transform=TwoCropTransform(train_transform),
+                                          download=True)
+        test_dataset = datasets.STL10(root='../../DATA2/stl10/data/', split='train', download=True, transform=TwoCropTransform(val_transform))  
 
     else:
         raise ValueError(dataset)

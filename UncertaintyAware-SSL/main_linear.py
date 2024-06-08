@@ -7,7 +7,7 @@ import torch
 import copy
 import os
 import numpy as np
-from Dataloader.dataloader import data_loader
+from Dataloader.dataloader import linear_data_loader
 from utils.util import adjust_learning_rate
 from utils.util import set_optimizer
 
@@ -44,7 +44,7 @@ def parse_option():
     # model dataset
     parser.add_argument('--model', type=str, default='resnet50')
     parser.add_argument('--dataset', type=str, default='cifar10',
-                        choices=['cifar10', 'cifar100', 'svhn'], help='dataset')
+                        choices=['cifar10', 'cifar100', 'svhn', 'imagenet'], help='dataset')
     parser.add_argument('--data_folder', type=str, default='.',
                         help='path to dataset')
 
@@ -124,7 +124,7 @@ def main():
 
     writer = SummaryWriter(log_dir=opt.tb_path)
     # build data loader
-    train_loader, val_loader, test_loader, targets = data_loader(dataset=opt.dataset, batch_size=opt.batch_size,
+    train_loader, val_loader, test_loader, targets, image_size = linear_data_loader(dataset=opt.dataset, batch_size=opt.batch_size,
                                                            semi=opt.semi, semi_percent=opt.semi_percent)
     num_classes = np.unique(targets).shape[0]
     
@@ -135,7 +135,7 @@ def main():
         torch.manual_seed(i)
         torch.cuda.manual_seed(i)
         model, classifier, criterion = set_model_linear(number_cls=num_classes, path=opt.ckpt,
-                                                        nh=opt.nh, opt=opt)
+                                                        nh=opt.nh, opt=opt, image_size=image_size)
         for param in model.parameters():
             param.requires_grad = False
         # build optimizer
@@ -201,17 +201,23 @@ def main():
             
 
         else:
-            opt.classifier_path = os.path.join(
-                opt.classifier_path,
-                '{}_{}_linear_{}_epoch{}_{}heads_lamda1{}_lamda2{}_withUQ.pth'.format(
-                            opt.model,
-                            model.head_type,
-                           opt.dataset,
-                           i,
-                           opt.epochs,
-                           opt.nh,
-                           opt.lamda1,
-                           opt.lamda2))
+            file_name = '{}_{}_linear_{}_epoch{}_{}heads_lamda1{}_lamda2{}'.format(
+                opt.model,
+                model.head_type,
+                opt.dataset,
+                i,
+                opt.epochs,
+                opt.nh,
+                opt.lamda1,
+                opt.lamda2
+            )
+    
+        if opt.ugraft_probing:
+            file_name += '_withUQ'
+            
+        file_name += '.pth'
+        
+        opt.classifier_path = os.path.join(opt.classifier_path, file_name)
             
         print("acc_l", acc_l)
         print("val_acc_l", val_acc_l)

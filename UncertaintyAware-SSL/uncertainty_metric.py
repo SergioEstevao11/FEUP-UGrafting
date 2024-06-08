@@ -3,7 +3,7 @@ import argparse
 import torch.distributions as dists
 from models.concatenate import MyEnsemble, MyUQEnsemble
 import numpy as np
-from Dataloader.dataloader import data_loader
+from Dataloader.dataloader import linear_data_loader
 from Train.linear_eval import set_model_linear, predict
 from utils.metrics import *
 from plotting.UQ_viz import *
@@ -155,7 +155,7 @@ def train():
         smi = False
 
 
-    train_loader, val_loader, test_loader, targets = data_loader(opt.dataset, batch_size=128, semi=smi,
+    train_loader, val_loader, test_loader, targets = linear_data_loader(opt.dataset, batch_size=128, semi=smi,
                                                                  semi_percent=opt.semi_percent)
     #ensemble(n, nh, targets, n_cls, test_loader, semi=False, model_dir=".", classifier_dir=".")
     ensemble(opt.ensemble, opt.nh, targets, n_cls, test_loader, smi, opt.model_path,opt.classifier_path, opt)
