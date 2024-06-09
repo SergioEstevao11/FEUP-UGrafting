@@ -59,8 +59,7 @@ class UALoss(nn.Module):
         # tile mask
         mask = mask.repeat(anchor_count, contrast_count)
         # mask-out self-contrast cases
-        logits_mask = torch.scatter(
-            torch.ones_like(mask),
+        logits_mask = torch.ones_like(mask).scatter_(
             1,
             torch.arange(batch_size * anchor_count).view(-1, 1).to(device),
             0

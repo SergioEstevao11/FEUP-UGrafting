@@ -6,6 +6,7 @@ from models.ugraft import UGraft, LinearClassifier, model_dict
 import torch.backends.cudnn as cudnn
 from torch import nn
 from sklearn.metrics import classification_report
+from torch.cuda.amp import GradScaler, autocast
 
 
 
@@ -61,6 +62,7 @@ def set_model_linear(number_cls, path, nh=5, opt=None, image_size=None):
 
     return model, classifier, criterion
 
+scaler = GradScaler()
 
 def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
     """one epoch training"""
@@ -86,13 +88,14 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
         warmup_learning_rate(opt, epoch, idx, len(train_loader), optimizer)
 
         # compute loss
-        with torch.no_grad():
-            if opt.ugraft_probing:
-                features, _ = model(images)
-            else:
-                features = model.encoder(images)
-        output = classifier(features.detach())
-        loss = criterion(output, labels)
+        with autocast():
+            with torch.no_grad():
+                if opt.ugraft_probing:
+                    features, _ = model(images)
+                else:
+                    features = model.encoder(images)
+            output = classifier(features.detach())
+            loss = criterion(output, labels)
 
         # update metric
         losses.update(loss.item(), bsz)
@@ -102,8 +105,9 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
 
         # SGD
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
 
         # measure elapsed time
         batch_time.update(time.time() - end)

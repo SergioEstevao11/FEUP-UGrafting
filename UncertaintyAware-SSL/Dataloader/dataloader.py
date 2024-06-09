@@ -70,7 +70,7 @@ def linear_data_loader(dataset="cifar10", batch_size=512, semi=False, semi_perce
     elif dataset == "svhn":
         mean = (0.4376821, 0.4437697, 0.47280442)
         std = (0.19803012, 0.20101562, 0.19703614)
-    elif dataset == "imagenet":
+    elif dataset == "imagenet" or dataset == "stl10":
         mean = (0.485, 0.456, 0.406)
         std = (0.229, 0.224, 0.225)
 
@@ -123,6 +123,14 @@ def linear_data_loader(dataset="cifar10", batch_size=512, semi=False, semi_perce
         train_dataset = datasets.ImageNet(root='../../DATA2/imagenet/', split="train", transform=train_transform)
         test_dataset = datasets.ImageNet(root='../../DATA2/imagenet/', split="val", transform=val_transform)
     
+    elif dataset == "stl10":
+        img_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+
+        train_dataset = datasets.STL10(root='../../DATA2/stl10/data/',
+                                        split='test',
+                                          transform=img_transforms,
+                                          download=True)
+        test_dataset = datasets.STL10(root='../../DATA2/stl10/data/', split='train', download=True, transform=img_transforms)  
 
     if semi:
         per = semi_percent / 100
@@ -289,7 +297,7 @@ def dataloader_UQ(dataset, batch_size, num_workers, data_dir='../../DATA2/', siz
         data_transform = transforms.Compose(
             [
                 transforms.RandomHorizontalFlip(),
-                transforms.RandomResizedCrop(size=96),
+                transforms.RandomResizedCrop(size=64),
                 transforms.RandomApply([transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)], p=0.8),
                 transforms.RandomGrayscale(p=0.2),
                 transforms.GaussianBlur(kernel_size=9),
@@ -303,7 +311,7 @@ def dataloader_UQ(dataset, batch_size, num_workers, data_dir='../../DATA2/', siz
 
         train_dataset = datasets.STL10(root='../../DATA2/stl10/data/',
                                         split='unlabeled',
-                                          transform=TwoCropTransform(train_transform),
+                                          transform=TwoCropTransform(data_transform),
                                           download=True)
         test_dataset = datasets.STL10(root='../../DATA2/stl10/data/', split='train', download=True, transform=TwoCropTransform(val_transform))  
 

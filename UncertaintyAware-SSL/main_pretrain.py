@@ -136,7 +136,7 @@ def main():
         total_params = sum(p.numel() for p in model.parameters())
         print(f"Number of parameters: {total_params}")
 
-
+        torch.cuda.empty_cache()
         with torch.profiler.profile(
                 schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler('./log/memory_profile'),
@@ -190,7 +190,7 @@ def main():
                     # print(f"len of test labels: ", labels)
                     #torch.save(UQ_l, UQ_l_file)
                 
-                if epoch % 10 == 0:
+                if epoch % 20 == 0:
                     checkpoint_file = os.path.join(
                         "./checkpoints",
                         '{}_{}_{}_{}_epochs{}_{}heads_lamda1{}_lamda2{}.pth'.format(opt.model, model.head_type, opt.dataset, i, epoch, opt.nh,
@@ -199,7 +199,7 @@ def main():
                     torch.save(model.state_dict(), checkpoint_file)
                     
 
-                torch.cuda.empty_cache()
+                #torch.cuda.empty_cache()
 
         
         linegraph_minmax_area(std_data, opt.epochs)
