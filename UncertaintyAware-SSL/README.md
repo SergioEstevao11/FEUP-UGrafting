@@ -5,8 +5,7 @@
 
 # 
 
-This repository is for "Diversified Ensemble of Independent Sub-Networks for
-Robust Self-Supervised Representation Learning" paper. It contains the example codes for different task descriptions. 
+This repository has the code used in my master's thesis: UGrafting: Uncertainty Quantification in Self-Supervised Learning. It contains the example codes for different task descriptions. 
 
 
 
